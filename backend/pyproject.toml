@@ -45,6 +45,7 @@ addopts = "-v --strict-markers"
 markers = [
     "ci_critical: marks tests as critical for CI (select few)",
     "asyncio: marks tests as async",
+    "keep_data: marks tests that should NOT clean up database (for manual inspection)",
 ]
 
 [tool.black]

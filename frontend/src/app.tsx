@@ -1,7 +1,11 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { LoginPage } from './features/auth/components/login-page';
 import { ProjectListPage } from './features/projects/components/project-list-page';
+import { ProjectLayout } from './features/projects/components/project-layout';
+import { ProjectOverview } from './features/projects/components/project-overview';
 import { TraceListPage } from './features/traces/components/trace-list-page';
+import { TraceDetailPage } from './features/traces/components/trace-detail-page';
+import { ConfigPage } from './features/config/components/config-page';
 import { ProtectedRoute } from './features/auth/components/protected-route';
 
 export function App() {
@@ -10,6 +14,7 @@ export function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         
+        {/* Projects list (no sidebar) */}
         <Route
           path="/projects"
           element={
@@ -19,14 +24,24 @@ export function App() {
           }
         />
         
+        {/* Project workspace with sidebar navigation */}
         <Route
-          path="/projects/:projectId/traces"
+          path="/projects/:projectId"
           element={
             <ProtectedRoute>
-              <TraceListPage />
+              <ProjectLayout />
             </ProtectedRoute>
           }
-        />
+        >
+          {/* Nested routes render in <Outlet /> */}
+          <Route index element={<ProjectOverview />} />
+          <Route path="tracing" element={<TraceListPage />} />
+          <Route path="tracing/:traceId" element={<TraceDetailPage />} />
+          <Route path="config" element={<ConfigPage />} />
+          {/* Phase 3+: Add more routes as we build them */}
+          {/* <Route path="analytics" element={<AnalyticsPage />} /> */}
+          {/* <Route path="graphs" element={<GraphsPage />} /> */}
+        </Route>
         
         <Route path="/" element={<Navigate to="/projects" replace />} />
       </Routes>

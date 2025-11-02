@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.core.database import close_db_connection, create_db_and_tables
-from app.api.routes import traces, observations, projects
+from app.api.routes import traces, observations, projects, model_pricing
 from app.api.deps import APIKey
 
 
@@ -47,6 +47,7 @@ app.add_middleware(
 app.include_router(projects.router, prefix=settings.API_V1_PREFIX, tags=["projects"])
 app.include_router(traces.router, prefix=settings.API_V1_PREFIX, tags=["traces"])
 app.include_router(observations.router, prefix=settings.API_V1_PREFIX, tags=["observations"])
+app.include_router(model_pricing.router, prefix=settings.API_V1_PREFIX, tags=["model-pricing"])
 
 
 @app.get("/health")

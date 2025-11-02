@@ -23,7 +23,6 @@ import { styled } from '@mui/material/styles';
 import { useProjectsQuery } from '../hooks/use-projects-query';
 import { useDeleteProjectMutation } from '../hooks/use-delete-project-mutation';
 import { ProjectCreateDialog } from './project-create-dialog';
-import type { Project } from '../types';
 
 const Container = styled(Box)(({ theme }) => ({
   padding: theme.spacing(3),
@@ -117,9 +116,9 @@ export function ProjectListPage() {
             <CardActions>
               <Button
                 size="small"
-                onClick={() => navigate(`/projects/${project.id}/traces`)}
+                onClick={() => navigate(`/projects/${project.id}`)}
               >
-                View Traces
+                Open Project
               </Button>
             </CardActions>
           </Card>

@@ -8,49 +8,98 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app.api.deps import APIKey, DBSession
-from app.models import Observation, ObservationType
+from app.models import Observation, ObservationType, Trace
+from app.api.services.cost_calculation_service import calculate_llm_cost, extract_provider_from_model
 
 
 router = APIRouter()
 
 
 class ObservationCreate(BaseModel):
-    """Request model for creating an observation"""
+    """Request model for creating an observation (Phase 2 enhanced)"""
     
     id: str = Field(..., description="Unique observation identifier (UUID)")
     trace_id: str = Field(..., description="Parent trace ID")
     parent_observation_id: str | None = Field(None, description="Parent observation ID")
     type: ObservationType = Field(..., description="Observation type")
     name: str | None = Field(None, description="Human-readable observation name")
+    
+    # Timing
     start_time: datetime = Field(default_factory=datetime.utcnow, description="Start time")
-    input: dict[str, Any] | None = Field(None, description="Input data")
+    end_time: datetime | None = Field(None, description="End time")
+    completion_start_time: datetime | None = Field(None, description="When LLM started generating (for TTFT)")
+    
+    # Content
+    input: dict[str, Any] | None = Field(None, description="Input data/state snapshot")
+    output: dict[str, Any] | None = Field(None, description="Output data/state snapshot")
     meta: dict[str, Any] | None = Field(None, description="Additional metadata")
-    model: str | None = Field(None, description="LLM model name (if applicable)")
+    
+    # LLM Details
+    model: str | None = Field(None, description="LLM model name (e.g., 'gpt-4-turbo')")
+    model_parameters: dict[str, Any] | None = Field(None, description="LLM parameters (temperature, max_tokens, etc.)")
+    
+    # Token counts (for cost calculation)
+    prompt_tokens: int | None = Field(None, description="Number of input/prompt tokens")
+    completion_tokens: int | None = Field(None, description="Number of output/completion tokens")
+    total_tokens: int | None = Field(None, description="Total tokens")
+    
+    # Status
+    level: str = Field(default="DEFAULT", description="Log level: DEBUG, DEFAULT, WARNING, ERROR")
+    status_message: str | None = Field(None, description="Status or error message")
 
 
 class ObservationUpdate(BaseModel):
-    """Request model for updating an observation"""
+    """Request model for updating an observation (Phase 2 enhanced)"""
     
+    # Timing
     end_time: datetime | None = Field(None, description="End time")
-    output: dict[str, Any] | None = Field(None, description="Output data")
+    completion_start_time: datetime | None = Field(None, description="When LLM started generating")
+    
+    # Content
+    output: dict[str, Any] | None = Field(None, description="Output data/state snapshot")
+    
+    # LLM Details
+    model: str | None = Field(None, description="LLM model name")
+    model_parameters: dict[str, Any] | None = Field(None, description="LLM parameters")
+    
+    # Token counts
+    prompt_tokens: int | None = Field(None, description="Prompt tokens")
+    completion_tokens: int | None = Field(None, description="Completion tokens")
+    total_tokens: int | None = Field(None, description="Total tokens")
+    
+    # Status
     level: str | None = Field(None, description="Log level")
     status_message: str | None = Field(None, description="Status or error message")
-    prompt_tokens: int | None = Field(None, description="Number of prompt tokens")
-    completion_tokens: int | None = Field(None, description="Number of completion tokens")
-    total_cost: Decimal | None = Field(None, description="Total cost in USD")
 
 
 class ObservationResponse(BaseModel):
-    """Response model for observation"""
+    """Response model for observation (Phase 2 enhanced)"""
     
     id: str
     trace_id: str
     parent_observation_id: str | None
     type: ObservationType
     name: str | None
+    
+    # Timing
     start_time: datetime
     end_time: datetime | None
+    completion_start_time: datetime | None
+    
+    # LLM Details
+    model: str | None
+    prompt_tokens: int | None
+    completion_tokens: int | None
+    total_tokens: int | None
+    
+    # Calculated costs
+    calculated_input_cost: Decimal | None
+    calculated_output_cost: Decimal | None
+    calculated_total_cost: Decimal | None
+    
+    # Status
     level: str
+    status_message: str | None
     
     model_config = {"from_attributes": True}
 
@@ -62,9 +111,12 @@ async def create_observation(
     api_key: APIKey,
 ) -> Observation:
     """
-    Create a new observation.
+    Create a new observation with automatic cost calculation.
     
-    Accepts observation data from the Swisper SDK and stores it in the database.
+    Phase 2 enhancement:
+    - Automatically calculates costs if LLM telemetry provided (model + tokens)
+    - Uses project-specific pricing or default pricing
+    - Stores calculated costs in observation for efficient querying
     """
     # Check if observation already exists (idempotency)
     stmt = select(Observation).where(Observation.id == observation_data.id)
@@ -76,6 +128,32 @@ async def create_observation(
     
     # Create new observation
     observation = Observation(**observation_data.model_dump())
+    
+    # Calculate costs if LLM telemetry provided
+    if observation.model and observation.prompt_tokens is not None and observation.completion_tokens is not None:
+        # Get project_id from trace (optimized: could join, but keeping simple for clarity)
+        trace_stmt = select(Trace.project_id).where(Trace.id == observation.trace_id)
+        trace_result = await session.execute(trace_stmt)
+        project_id = trace_result.scalar_one_or_none()
+        
+        if project_id:
+            # Calculate cost
+            cost_result = await calculate_llm_cost(
+                session=session,
+                project_id=project_id,
+                model=observation.model,
+                prompt_tokens=observation.prompt_tokens,
+                completion_tokens=observation.completion_tokens
+            )
+            
+            if cost_result:
+                observation.calculated_input_cost = cost_result.input_cost
+                observation.calculated_output_cost = cost_result.output_cost
+                observation.calculated_total_cost = cost_result.total_cost
+    
+    # Calculate total_tokens if not provided
+    if observation.total_tokens is None and observation.prompt_tokens is not None and observation.completion_tokens is not None:
+        observation.total_tokens = observation.prompt_tokens + observation.completion_tokens
     
     session.add(observation)
     await session.commit()
@@ -92,9 +170,12 @@ async def update_observation(
     api_key: APIKey,
 ) -> Observation:
     """
-    Update an observation (typically to close it with end_time and output).
+    Update an observation with automatic cost recalculation.
     
-    Used by the SDK when an observation completes.
+    Phase 2 enhancement:
+    - Recalculates costs if tokens/model change
+    - Updates state snapshots (input/output)
+    - Used by SDK when observation completes
     """
     stmt = select(Observation).where(Observation.id == observation_id)
     result = await session.execute(stmt)
@@ -110,6 +191,32 @@ async def update_observation(
     update_dict = update_data.model_dump(exclude_unset=True)
     for field, value in update_dict.items():
         setattr(observation, field, value)
+    
+    # Recalculate costs if LLM telemetry provided/updated
+    if observation.model and observation.prompt_tokens is not None and observation.completion_tokens is not None:
+        # Get project_id from trace (optimized: select only project_id)
+        trace_stmt = select(Trace.project_id).where(Trace.id == observation.trace_id)
+        trace_result = await session.execute(trace_stmt)
+        project_id = trace_result.scalar_one_or_none()
+        
+        if project_id:
+            # Recalculate cost
+            cost_result = await calculate_llm_cost(
+                session=session,
+                project_id=project_id,
+                model=observation.model,
+                prompt_tokens=observation.prompt_tokens,
+                completion_tokens=observation.completion_tokens
+            )
+            
+            if cost_result:
+                observation.calculated_input_cost = cost_result.input_cost
+                observation.calculated_output_cost = cost_result.output_cost
+                observation.calculated_total_cost = cost_result.total_cost
+    
+    # Calculate total_tokens if not provided
+    if observation.total_tokens is None and observation.prompt_tokens is not None and observation.completion_tokens is not None:
+        observation.total_tokens = observation.prompt_tokens + observation.completion_tokens
     
     await session.commit()
     await session.refresh(observation)

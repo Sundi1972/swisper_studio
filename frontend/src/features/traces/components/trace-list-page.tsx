@@ -7,17 +7,10 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import { DataGrid, GridColDef } from '@mui/x-data-grid';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { styled } from '@mui/material/styles';
 
 import { useTracesQuery } from '../hooks/use-traces-query';
-
-const Container = styled(Box)(({ theme }) => ({
-  padding: theme.spacing(3),
-}));
 
 const columns: GridColDef[] = [
   {
@@ -56,24 +49,17 @@ export function TraceListPage() {
 
   if (isLoading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
         <CircularProgress />
       </Box>
     );
   }
 
   return (
-    <Container data-testid="trace-list-page">
-      <Box display="flex" alignItems="center" mb={3}>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={() => navigate('/projects')}
-          sx={{ mr: 2 }}
-        >
-          Back to Projects
-        </Button>
-        <Typography variant="h4">Traces</Typography>
-      </Box>
+    <Box data-testid="trace-list-page">
+      <Typography variant="h5" gutterBottom>
+        Traces
+      </Typography>
 
       <DataGrid
         rows={data?.data || []}
@@ -85,7 +71,13 @@ export function TraceListPage() {
         onPaginationModelChange={(model) => setPage(model.page + 1)} // Convert to 1-based
         pageSizeOptions={[50]}
         autoHeight
-        disableRowSelectionOnClick
+        disableRowSelectionOnClick={false}
+        onRowClick={(params) => navigate(`/projects/${projectId}/tracing/${params.id}`)}
+        sx={{
+          '& .MuiDataGrid-row': {
+            cursor: 'pointer',
+          },
+        }}
       />
 
       {data?.data.length === 0 && (
@@ -95,7 +87,7 @@ export function TraceListPage() {
           </Typography>
         </Box>
       )}
-    </Container>
+    </Box>
   );
 }
 

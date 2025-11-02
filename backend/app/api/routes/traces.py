@@ -9,6 +9,7 @@ from sqlalchemy import select, func
 
 from app.api.deps import APIKey, DBSession
 from app.models import Trace, Project
+from app.api.services.observation_tree_service import build_observation_tree, ObservationTreeNode
 
 
 router = APIRouter()
@@ -91,21 +92,57 @@ async def list_traces(
     project_id: str = Query(..., description="Project ID to filter traces"),
     page: int = Query(default=1, ge=1, description="Page number"),
     limit: int = Query(default=50, ge=1, le=1000, description="Items per page"),
+    # Phase 2: Enhanced filters
+    user_id: str | None = Query(None, description="Filter by user ID"),
+    session_id: str | None = Query(None, description="Filter by session ID"),
+    start_date: datetime | None = Query(None, description="Filter traces after this date"),
+    end_date: datetime | None = Query(None, description="Filter traces before this date"),
+    name: str | None = Query(None, description="Filter by trace name (partial match)"),
+    # Filter by tags
+    tags: list[str] | None = Query(None, description="Filter by tags (any match)"),
+    # Dependencies
     session: DBSession = None,
     api_key: APIKey = None,
 ) -> dict[str, Any]:
     """
-    List traces for a project with pagination.
+    List traces for a project with pagination and filtering (Phase 2 enhanced).
+    
+    Filters:
+    - user_id: Exact match
+    - session_id: Exact match
+    - start_date/end_date: Date range (inclusive)
+    - name: Partial match (case-insensitive)
+    - tags: Any tag matches (OR logic)
     
     Following Langfuse pagination pattern.
     """
-    # Build query
+    # Build query with filters
     base_stmt = select(Trace).where(Trace.project_id == project_id)
     
-    # Count total
-    count_stmt = select(func.count()).select_from(Trace).where(
-        Trace.project_id == project_id
-    )
+    # Apply filters
+    if user_id:
+        base_stmt = base_stmt.where(Trace.user_id == user_id)
+    
+    if session_id:
+        base_stmt = base_stmt.where(Trace.session_id == session_id)
+    
+    if start_date:
+        base_stmt = base_stmt.where(Trace.timestamp >= start_date)
+    
+    if end_date:
+        base_stmt = base_stmt.where(Trace.timestamp <= end_date)
+    
+    if name:
+        base_stmt = base_stmt.where(Trace.name.ilike(f"%{name}%"))
+    
+    if tags:
+        # Filter for traces that have ANY of the specified tags
+        # PostgreSQL: tags @> ANY(ARRAY[...])
+        from sqlalchemy import any_, cast, ARRAY, String
+        base_stmt = base_stmt.where(Trace.tags.op("&&")(cast(tags, ARRAY(String))))
+    
+    # Count total with filters applied
+    count_stmt = select(func.count()).select_from(base_stmt.subquery())
     total = await session.scalar(count_stmt) or 0
     
     # Paginate and order by newest first
@@ -144,3 +181,40 @@ async def get_trace(
         )
     
     return trace
+
+
+@router.get("/traces/{trace_id}/tree", response_model=list[ObservationTreeNode])
+async def get_trace_tree(
+    trace_id: str,
+    session: DBSession,
+    api_key: APIKey,
+) -> list[ObservationTreeNode]:
+    """
+    Get observation tree for a trace.
+    
+    Phase 2 feature: Returns nested observation structure with aggregated metrics.
+    Used by frontend to display trace execution flow with costs and timing.
+    
+    Returns:
+        List of root observation nodes with nested children.
+        Each node includes:
+        - All observation fields
+        - Calculated latency
+        - Aggregated cost (this node + all children)
+        - Aggregated duration (sum of all durations in subtree)
+    """
+    # Verify trace exists
+    trace_stmt = select(Trace).where(Trace.id == trace_id)
+    trace_result = await session.execute(trace_stmt)
+    trace = trace_result.scalar_one_or_none()
+    
+    if not trace:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Trace {trace_id} not found"
+        )
+    
+    # Build tree
+    tree = await build_observation_tree(session, trace_id)
+    
+    return tree

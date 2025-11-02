@@ -51,6 +51,10 @@ class Observation(SQLModel, table=True):
         default=None,
         description="When the observation ended"
     )
+    completion_start_time: datetime | None = Field(
+        default=None,
+        description="When LLM started generating completion (for TTFT calculation)"
+    )
     
     # Input/Output
     input: dict[str, Any] | None = Field(
@@ -72,10 +76,34 @@ class Observation(SQLModel, table=True):
     )
     
     # LLM-specific fields (for GENERATION type)
-    model: str | None = Field(default=None, description="LLM model name (if applicable)")
-    prompt_tokens: int | None = Field(default=None, description="Number of prompt tokens")
-    completion_tokens: int | None = Field(default=None, description="Number of completion tokens")
-    total_cost: Decimal | None = Field(default=None, description="Total cost in USD")
+    model: str | None = Field(default=None, description="LLM model name (e.g., 'gpt-4-turbo')")
+    model_parameters: dict[str, Any] | None = Field(
+        default=None,
+        sa_column=Column(JSON),
+        description="LLM parameters (temperature, max_tokens, etc.)"
+    )
+    
+    # Token tracking
+    prompt_tokens: int | None = Field(default=None, description="Number of prompt/input tokens")
+    completion_tokens: int | None = Field(default=None, description="Number of completion/output tokens")
+    total_tokens: int | None = Field(default=None, description="Total tokens (input + output)")
+    
+    # Cost tracking (calculated during ingestion)
+    calculated_input_cost: Decimal | None = Field(
+        default=None,
+        description="Calculated cost for input tokens (USD)"
+    )
+    calculated_output_cost: Decimal | None = Field(
+        default=None,
+        description="Calculated cost for output tokens (USD)"
+    )
+    calculated_total_cost: Decimal | None = Field(
+        default=None,
+        description="Total calculated cost (USD)"
+    )
+    
+    # DEPRECATED: Use calculated_total_cost instead
+    total_cost: Decimal | None = Field(default=None, description="DEPRECATED: Use calculated_total_cost")
     
     # Status
     level: str = Field(default="DEFAULT", description="Log level: DEFAULT, WARNING, ERROR")
@@ -85,4 +113,7 @@ class Observation(SQLModel, table=True):
         Index("ix_observations_trace_start_time", "trace_id", "start_time"),
         Index("ix_observations_type_start_time", "type", "start_time"),
         Index("ix_observations_parent_id", "parent_observation_id"),
+        Index("ix_observations_model", "model"),
+        Index("ix_observations_level", "level"),
+        Index("ix_observations_total_cost", "calculated_total_cost"),
     )
