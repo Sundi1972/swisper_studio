@@ -1,0 +1,152 @@
+"""
+@traced decorator for automatic tracing
+
+Captures function inputs, outputs, and execution time.
+Works with both sync and async functions.
+"""
+
+import asyncio
+import functools
+import time
+from typing import TypeVar, Callable
+
+from .client import get_studio_client
+from .context import get_current_trace, get_current_observation, set_current_observation
+
+T = TypeVar('T')
+
+
+def traced(
+    name: str | None = None,
+    observation_type: str = "SPAN",
+):
+    """
+    Auto-trace any function/node.
+    
+    Usage:
+        @traced("my_node")
+        async def my_node(state):
+            # Your logic
+            return state
+    
+    Args:
+        name: Observation name (defaults to function name)
+        observation_type: Type of observation (SPAN, GENERATION, EVENT, TOOL, AGENT)
+    """
+    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+        obs_name = name or func.__name__
+
+        @functools.wraps(func)
+        async def async_wrapper(*args, **kwargs) -> T:
+            client = get_studio_client()
+            if not client:
+                # Tracing not initialized, just run function
+                if asyncio.iscoroutinefunction(func):
+                    return await func(*args, **kwargs)
+                else:
+                    return func(*args, **kwargs)
+
+            # Get current trace context
+            trace_id = get_current_trace()
+            if not trace_id:
+                # No active trace, skip tracing
+                if asyncio.iscoroutinefunction(func):
+                    return await func(*args, **kwargs)
+                else:
+                    return func(*args, **kwargs)
+
+            # Capture input (if LangGraph state)
+            input_data = None
+            if args and hasattr(args[0], '__dict__'):
+                try:
+                    # Try to serialize state
+                    if hasattr(args[0], 'dict'):
+                        input_data = args[0].dict()
+                    elif hasattr(args[0], '__dict__'):
+                        input_data = vars(args[0])
+                except Exception:
+                    # Skip if serialization fails
+                    pass
+
+            # Get parent observation (for nesting)
+            parent_obs = get_current_observation()
+
+            # Create observation
+            try:
+                obs_id = await client.create_observation(
+                    trace_id=trace_id,
+                    name=obs_name,
+                    type=observation_type,
+                    parent_observation_id=parent_obs,
+                    input=input_data,
+                )
+            except Exception:
+                # If observation creation fails, continue without tracing
+                if asyncio.iscoroutinefunction(func):
+                    return await func(*args, **kwargs)
+                else:
+                    return func(*args, **kwargs)
+
+            # Set as current observation (for nested calls)
+            token = set_current_observation(obs_id)
+
+            try:
+                # Execute function
+                if asyncio.iscoroutinefunction(func):
+                    result = await func(*args, **kwargs)
+                else:
+                    result = func(*args, **kwargs)
+
+                # Capture output
+                output_data = None
+                if hasattr(result, '__dict__'):
+                    try:
+                        if hasattr(result, 'dict'):
+                            output_data = result.dict()
+                        elif hasattr(result, '__dict__'):
+                            output_data = vars(result)
+                    except Exception:
+                        pass
+
+                # End observation (success)
+                try:
+                    await client.end_observation(
+                        observation_id=obs_id,
+                        output=output_data,
+                        level="DEFAULT",
+                    )
+                except Exception:
+                    # Ignore if ending observation fails
+                    pass
+
+                return result
+
+            except Exception as e:
+                # End observation (error)
+                try:
+                    await client.end_observation(
+                        observation_id=obs_id,
+                        level="ERROR",
+                        status_message=str(e),
+                    )
+                except Exception:
+                    # Ignore if ending observation fails
+                    pass
+                raise
+
+            finally:
+                # Reset observation context
+                set_current_observation(parent_obs, token)
+
+        # Return appropriate wrapper
+        if asyncio.iscoroutinefunction(func):
+            return async_wrapper
+        else:
+            # For sync functions, wrap in async
+            @functools.wraps(func)
+            async def sync_wrapper(*args, **kwargs) -> T:
+                return await async_wrapper(*args, **kwargs)
+            return sync_wrapper
+
+    return decorator
+

@@ -185,7 +185,7 @@ Dependencies:
 **❌ NEVER assume the plan - always reference the actual plan.md document!**
 **❌ NEVER implement multiple phases at once without individual approvals!**
 
-## 4. TDD (Red) - WRITE TESTS AND EXECUTE THEM
+## 4. TDD (Red) - TEST PLANNING AND EXECUTION
 
 **⚠️ WHEN TO USE TDD:**
 
@@ -206,9 +206,59 @@ TDD is **OPTIONAL/SKIP** for:
 
 ---
 
-**MANDATORY ACTIONS IN THIS ORDER (when using TDD):**
+### 🛑 **Step 4.1: TEST PLANNING (APPROVAL GATE)**
 
-1. ✅ **WRITE comprehensive business-relevant tests**
+**⛔ MANDATORY: Before writing any tests, propose test plan and get approval!**
+
+**Process:**
+
+1. ✅ **PROPOSE test plan to user:**
+   - List what scenarios you plan to test
+   - Categorize: Business value tests, Edge cases, Error cases
+   - Identify which tests should be `ci_critical`
+   - Explain rationale for each category
+
+2. ✅ **FORMAT:**
+   ```
+   📋 TEST PLAN FOR: {Feature Name}
+   
+   BUSINESS VALUE TESTS (Golden Path):
+   1. {Test name} - {What it tests} - {Why it's valuable}
+   2. ...
+   
+   EDGE CASES (Boundary Conditions):
+   1. {Test name} - {What it tests}
+   2. ...
+   
+   ERROR CASES (Failure Scenarios):
+   1. {Test name} - {What it tests}
+   2. ...
+   
+   CI-CRITICAL TESTS (1-2 only):
+   - {Test name} - Why critical
+   
+   ESTIMATED: {N} tests total
+   
+   📌 Approve this test plan before I write tests?
+   ```
+
+3. ⏸️ **WAIT for user approval:**
+   - **DO NOT write tests without approval**
+   - User may suggest additional tests
+   - User may remove unnecessary tests
+   - User may reprioritize ci_critical tests
+
+4. ✅ **ONLY AFTER APPROVAL:** Proceed to Step 4.2
+
+**❌ NEVER skip this approval step!**
+
+---
+
+### **Step 4.2: WRITE TESTS (After Approval)**
+
+**MANDATORY ACTIONS IN THIS ORDER:**
+
+1. ✅ **WRITE comprehensive business-relevant tests** (as approved in Step 4.1)
    - Use **real infrastructure** over mocks (databases, APIs, LLMs)
    - Mock ONLY when: cost prohibitive, unstable, or rate-limited
    - Tests should be deterministic and isolated

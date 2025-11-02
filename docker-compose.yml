@@ -1,0 +1,94 @@
+version: '3.8'
+
+services:
+  # PostgreSQL - SwisperStudio Database (NEW instance, separate from Swisper)
+  postgres:
+    image: postgres:15-alpine
+    container_name: swisper_studio_postgres
+    environment:
+      POSTGRES_DB: swisper_studio
+      POSTGRES_USER: studio_user
+      POSTGRES_PASSWORD: studio_pass
+    ports:
+      - "5433:5432"  # Use 5433 to avoid conflict with Swisper's PostgreSQL on 5432
+    volumes:
+      - swisper_studio_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U studio_user -d swisper_studio"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - swisper_studio_network
+
+  # ClickHouse - Analytics Database (optional for MVP, disabled for now to avoid port conflicts)
+  # Uncomment when ready to use
+  # clickhouse:
+  #   image: clickhouse/clickhouse-server:latest
+  #   container_name: swisper_studio_clickhouse
+  #   ports:
+  #     - "8124:8123"  # HTTP interface (avoid conflict with Swisper ClickHouse)
+  #     - "9001:9000"  # Native client (avoid conflict with Swisper ClickHouse)
+  #   environment:
+  #     CLICKHOUSE_DB: swisper_studio_analytics
+  #     CLICKHOUSE_USER: studio_user
+  #     CLICKHOUSE_PASSWORD: studio_pass
+  #   volumes:
+  #     - swisper_studio_clickhouse:/var/lib/clickhouse
+  #   healthcheck:
+  #     test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #   networks:
+  #     - swisper_studio_network
+
+  # SwisperStudio Backend - FastAPI Application
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: swisper_studio_backend
+    ports:
+      - "8001:8000"  # External port 8001 (avoid conflict with Swisper on 8000)
+    environment:
+      # Database
+      DATABASE_URL: postgresql+asyncpg://studio_user:studio_pass@postgres:5432/swisper_studio
+      
+      # ClickHouse (optional for MVP)
+      CLICKHOUSE_URL: http://clickhouse:8123
+      CLICKHOUSE_DB: swisper_studio_analytics
+      CLICKHOUSE_USER: studio_user
+      CLICKHOUSE_PASSWORD: studio_pass
+      
+      # Security
+      SECRET_KEY: dev-secret-key-change-in-production
+      API_KEY: dev-api-key-change-in-production
+      
+      # CORS
+      CORS_ORIGINS: '["http://localhost:3000","http://localhost:5173"]'
+      
+      # Environment
+      ENVIRONMENT: development
+      LOG_LEVEL: DEBUG
+    volumes:
+      - ./backend:/code
+    depends_on:
+      postgres:
+        condition: service_healthy
+      # clickhouse:
+      #   condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - swisper_studio_network
+    restart: unless-stopped
+
+volumes:
+  swisper_studio_db:
+    driver: local
+  swisper_studio_clickhouse:
+    driver: local
+
+networks:
+  swisper_studio_network:
+    driver: bridge
