@@ -8,8 +8,11 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select, func
 
 from app.api.deps import APIKey, DBSession
-from app.models import Trace, Project
+from app.models import Trace, Project, Observation
 from app.api.services.observation_tree_service import build_observation_tree, ObservationTreeNode
+from app.api.services.graph_builder_service import graph_builder_service
+from app.models.graph import GraphData
+import uuid
 
 
 router = APIRouter()
@@ -218,3 +221,43 @@ async def get_trace_tree(
     tree = await build_observation_tree(session, trace_id)
     
     return tree
+
+
+@router.get("/traces/{trace_id}/graph", response_model=GraphData)
+async def get_trace_graph(
+    trace_id: uuid.UUID,
+    session: DBSession,
+    api_key: APIKey
+) -> GraphData:
+    """
+    Get graph structure for trace visualization.
+    
+    Converts the observation tree into a graph format suitable for
+    visualization libraries like vis-network.
+    
+    Returns:
+        GraphData with nodes (observations) and edges (parent-child relationships)
+    """
+    # Convert UUID to string for database query (Trace.id is VARCHAR)
+    trace_id_str = str(trace_id)
+    
+    # Verify trace exists
+    trace_stmt = select(Trace).where(Trace.id == trace_id_str)
+    trace_result = await session.execute(trace_stmt)
+    trace = trace_result.scalar_one_or_none()
+    
+    if not trace:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Trace {trace_id} not found"
+        )
+    
+    # Fetch all observations for this trace (Observation.trace_id is also VARCHAR)
+    obs_stmt = select(Observation).where(Observation.trace_id == trace_id_str)
+    obs_result = await session.execute(obs_stmt)
+    observations = obs_result.scalars().all()
+    
+    # Build graph using service
+    graph = graph_builder_service.build_trace_graph(list(observations))
+    
+    return graph

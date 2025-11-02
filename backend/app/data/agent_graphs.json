@@ -1,0 +1,187 @@
+{
+  "agents": [
+    {
+      "name": "global_supervisor",
+      "description": "Main orchestrator that routes to domain agents and manages conversation flow",
+      "nodes": [
+        {
+          "id": "intent_classification",
+          "label": "Intent Classification",
+          "type": "SPAN"
+        },
+        {
+          "id": "memory",
+          "label": "Memory",
+          "type": "SPAN"
+        },
+        {
+          "id": "planner",
+          "label": "Global Planner",
+          "type": "SPAN"
+        },
+        {
+          "id": "agent_execution",
+          "label": "Agent Execution",
+          "type": "AGENT"
+        },
+        {
+          "id": "ui_node",
+          "label": "User Interface",
+          "type": "GENERATION"
+        },
+        {
+          "id": "indexing",
+          "label": "Indexing",
+          "type": "SPAN"
+        }
+      ],
+      "edges": [
+        {
+          "from": "intent_classification",
+          "to": "memory"
+        },
+        {
+          "from": "memory",
+          "to": "planner"
+        },
+        {
+          "from": "planner",
+          "to": "agent_execution"
+        },
+        {
+          "from": "agent_execution",
+          "to": "ui_node"
+        },
+        {
+          "from": "ui_node",
+          "to": "indexing"
+        }
+      ]
+    },
+    {
+      "name": "productivity_agent",
+      "description": "Email, calendar, and task management agent",
+      "nodes": [
+        {
+          "id": "provider_selection",
+          "label": "Provider Selection",
+          "type": "SPAN"
+        },
+        {
+          "id": "productivity_planner",
+          "label": "Productivity Planner",
+          "type": "SPAN"
+        },
+        {
+          "id": "productivity_write",
+          "label": "Productivity Write",
+          "type": "GENERATION"
+        },
+        {
+          "id": "tool_execution",
+          "label": "Tool Execution",
+          "type": "TOOL"
+        }
+      ],
+      "edges": [
+        {
+          "from": "provider_selection",
+          "to": "productivity_planner"
+        },
+        {
+          "from": "productivity_planner",
+          "to": "productivity_write"
+        },
+        {
+          "from": "productivity_write",
+          "to": "tool_execution"
+        }
+      ]
+    },
+    {
+      "name": "research_agent",
+      "description": "Web search and real-time information retrieval agent",
+      "nodes": [
+        {
+          "id": "research_planner",
+          "label": "Research Planner",
+          "type": "SPAN"
+        },
+        {
+          "id": "search",
+          "label": "Search",
+          "type": "TOOL"
+        },
+        {
+          "id": "evaluator",
+          "label": "Evaluator",
+          "type": "SPAN"
+        }
+      ],
+      "edges": [
+        {
+          "from": "research_planner",
+          "to": "search"
+        },
+        {
+          "from": "search",
+          "to": "evaluator"
+        }
+      ]
+    },
+    {
+      "name": "wealth_agent",
+      "description": "Financial data retrieval and analysis agent",
+      "nodes": [
+        {
+          "id": "wealth_planner",
+          "label": "Wealth Planner",
+          "type": "SPAN"
+        },
+        {
+          "id": "data_fetch",
+          "label": "Data Fetch",
+          "type": "TOOL"
+        }
+      ],
+      "edges": [
+        {
+          "from": "wealth_planner",
+          "to": "data_fetch"
+        }
+      ]
+    },
+    {
+      "name": "doc_agent",
+      "description": "Document search and RAG (Retrieval-Augmented Generation) agent",
+      "nodes": [
+        {
+          "id": "query_processor",
+          "label": "Query Processor",
+          "type": "SPAN"
+        },
+        {
+          "id": "retrieval",
+          "label": "Retrieval",
+          "type": "RETRIEVER"
+        },
+        {
+          "id": "response_generator",
+          "label": "Response Generator",
+          "type": "GENERATION"
+        }
+      ],
+      "edges": [
+        {
+          "from": "query_processor",
+          "to": "retrieval"
+        },
+        {
+          "from": "retrieval",
+          "to": "response_generator"
+        }
+      ]
+    }
+  ]
+}
+

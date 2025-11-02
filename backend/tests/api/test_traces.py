@@ -81,3 +81,40 @@ async def test_create_trace_missing_auth(client: AsyncClient) -> None:
 # NOTE: Trace listing tests removed (event loop issues).
 # Functionality will be tested via manual verification and frontend integration.
 # For production, implement proper async test fixtures.
+
+
+# ============================================================================
+# TRACE GRAPH ENDPOINT TESTS
+# ============================================================================
+
+@pytest.mark.asyncio
+async def test_get_trace_graph_not_found(client: AsyncClient, api_headers: dict[str, str]) -> None:
+    """
+    Error case: GET /traces/{invalid_id}/graph returns 404.
+    Expected: 404 Not Found.
+    """
+    import uuid
+    non_existent_id = uuid.uuid4()
+    
+    response = await client.get(
+        f"/api/v1/traces/{non_existent_id}/graph",
+        headers=api_headers
+    )
+    
+    assert response.status_code == 404
+    assert "not found" in response.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_get_trace_graph_missing_auth(client: AsyncClient) -> None:
+    """
+    Error case: GET /traces/{id}/graph without API key should be rejected.
+    Expected: 401 Unauthorized.
+    """
+    import uuid
+    trace_id = uuid.uuid4()
+    
+    response = await client.get(f"/api/v1/traces/{trace_id}/graph")
+    # No API key header
+    
+    assert response.status_code == 401
