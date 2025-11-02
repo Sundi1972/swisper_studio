@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useTraceDetail } from '../hooks/use-trace-detail';
 import { ObservationTree } from './observation-tree';
+import { TraceGraphView } from './trace-graph-view';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -21,10 +22,9 @@ function TabPanel({ children, value, index }: TabPanelProps) {
 /**
  * Trace detail page with rich observability data.
  * 
- * Phase 2 MVP: Shows observation tree with basic details
- * 
  * Tabs:
- * - Tree View: Hierarchical observation structure (MVP)
+ * - Tree View: Hierarchical observation structure (Phase 2)
+ * - Graph View: Visual execution flow (Phase 3)
  * - Timeline: Chronological sequence (future)
  * - JSON: Raw data view (future)
  */
@@ -87,6 +87,7 @@ export function TraceDetailPage() {
       <Paper sx={{ mb: 2 }}>
         <Tabs value={currentTab} onChange={(_, newValue) => setCurrentTab(newValue)}>
           <Tab label="Tree View" />
+          <Tab label="Graph View" />
           <Tab label="Timeline" disabled />
           <Tab label="JSON" disabled />
         </Tabs>
@@ -102,10 +103,14 @@ export function TraceDetailPage() {
       </TabPanel>
 
       <TabPanel value={currentTab} index={1}>
-        <Typography>Timeline view coming soon...</Typography>
+        <TraceGraphView traceId={traceId!} />
       </TabPanel>
 
       <TabPanel value={currentTab} index={2}>
+        <Typography>Timeline view coming soon...</Typography>
+      </TabPanel>
+
+      <TabPanel value={currentTab} index={3}>
         <Typography>JSON view coming soon...</Typography>
       </TabPanel>
     </Box>

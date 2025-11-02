@@ -6,6 +6,7 @@ import { ProjectOverview } from './features/projects/components/project-overview
 import { TraceListPage } from './features/traces/components/trace-list-page';
 import { TraceDetailPage } from './features/traces/components/trace-detail-page';
 import { ConfigPage } from './features/config/components/config-page';
+import { SystemArchitectureView } from './features/swisper-builder';
 import { ProtectedRoute } from './features/auth/components/protected-route';
 
 export function App() {
@@ -20,6 +21,16 @@ export function App() {
           element={
             <ProtectedRoute>
               <ProjectListPage />
+            </ProtectedRoute>
+          }
+        />
+        
+        {/* Swisper Builder - System Architecture */}
+        <Route
+          path="/swisper-builder"
+          element={
+            <ProtectedRoute>
+              <SystemArchitectureView />
             </ProtectedRoute>
           }
         />

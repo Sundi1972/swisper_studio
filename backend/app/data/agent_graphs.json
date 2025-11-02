@@ -5,19 +5,29 @@
       "description": "Main orchestrator that routes to domain agents and manages conversation flow",
       "nodes": [
         {
-          "id": "intent_classification",
+          "id": "user_in_the_loop_handler",
+          "label": "User Clarification Handler",
+          "type": "SPAN"
+        },
+        {
+          "id": "classify_intent",
           "label": "Intent Classification",
+          "type": "GENERATION"
+        },
+        {
+          "id": "memory_node",
+          "label": "Memory Retrieval",
           "type": "SPAN"
         },
         {
-          "id": "memory",
-          "label": "Memory",
+          "id": "indexing",
+          "label": "Document Indexing",
           "type": "SPAN"
         },
         {
-          "id": "planner",
+          "id": "global_planner",
           "label": "Global Planner",
-          "type": "SPAN"
+          "type": "GENERATION"
         },
         {
           "id": "agent_execution",
@@ -25,36 +35,93 @@
           "type": "AGENT"
         },
         {
-          "id": "ui_node",
+          "id": "user_interface",
           "label": "User Interface",
           "type": "GENERATION"
-        },
-        {
-          "id": "indexing",
-          "label": "Indexing",
-          "type": "SPAN"
         }
       ],
       "edges": [
         {
-          "from": "intent_classification",
-          "to": "memory"
+          "from": "classify_intent",
+          "to": "memory_node",
+          "conditional": false
         },
         {
-          "from": "memory",
-          "to": "planner"
+          "from": "memory_node",
+          "to": "indexing",
+          "conditional": true,
+          "label": "if file uploaded"
         },
         {
-          "from": "planner",
-          "to": "agent_execution"
+          "from": "memory_node",
+          "to": "user_interface",
+          "conditional": true,
+          "label": "if simple_chat"
+        },
+        {
+          "from": "memory_node",
+          "to": "global_planner",
+          "conditional": true,
+          "label": "if complex_chat"
+        },
+        {
+          "from": "indexing",
+          "to": "global_planner",
+          "conditional": false
+        },
+        {
+          "from": "global_planner",
+          "to": "user_interface",
+          "conditional": true,
+          "label": "if complete/final"
+        },
+        {
+          "from": "global_planner",
+          "to": "agent_execution",
+          "conditional": true,
+          "label": "if needs agent"
+        },
+        {
+          "from": "global_planner",
+          "to": "global_planner",
+          "conditional": true,
+          "label": "if loop"
         },
         {
           "from": "agent_execution",
-          "to": "ui_node"
+          "to": "user_interface",
+          "conditional": true,
+          "label": "if final step"
         },
         {
-          "from": "ui_node",
-          "to": "indexing"
+          "from": "agent_execution",
+          "to": "global_planner",
+          "conditional": true,
+          "label": "if continue"
+        },
+        {
+          "from": "user_interface",
+          "to": "user_in_the_loop_handler",
+          "conditional": true,
+          "label": "if needs clarification"
+        },
+        {
+          "from": "user_in_the_loop_handler",
+          "to": "agent_execution",
+          "conditional": true,
+          "label": "if resume agent"
+        },
+        {
+          "from": "user_in_the_loop_handler",
+          "to": "classify_intent",
+          "conditional": true,
+          "label": "if new question"
+        },
+        {
+          "from": "user_in_the_loop_handler",
+          "to": "global_planner",
+          "conditional": true,
+          "label": "default"
         }
       ]
     },

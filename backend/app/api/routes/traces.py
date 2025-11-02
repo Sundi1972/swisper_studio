@@ -225,7 +225,7 @@ async def get_trace_tree(
 
 @router.get("/traces/{trace_id}/graph", response_model=GraphData)
 async def get_trace_graph(
-    trace_id: uuid.UUID,
+    trace_id: str,
     session: DBSession,
     api_key: APIKey
 ) -> GraphData:
@@ -238,8 +238,8 @@ async def get_trace_graph(
     Returns:
         GraphData with nodes (observations) and edges (parent-child relationships)
     """
-    # Convert UUID to string for database query (Trace.id is VARCHAR)
-    trace_id_str = str(trace_id)
+    # Trace.id is VARCHAR, so we use the string directly
+    trace_id_str = trace_id
     
     # Verify trace exists
     trace_stmt = select(Trace).where(Trace.id == trace_id_str)

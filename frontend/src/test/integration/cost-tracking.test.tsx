@@ -10,7 +10,6 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { apiClient } from '../../lib/api-client';
 import { storeApiKey } from '../../features/auth/utils/auth-storage';
 
@@ -105,7 +104,7 @@ describe('Phase 2 Cost Tracking Integration', () => {
     });
 
     // Create child with cost
-    const child = await apiClient.post<any>('/observations', {
+    await apiClient.post<any>('/observations', {
       id: `child-${Date.now()}`,
       trace_id: testTraceId,
       parent_observation_id: parent.id,

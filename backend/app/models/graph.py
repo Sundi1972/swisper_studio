@@ -24,6 +24,8 @@ class GraphEdge(BaseModel):
     
     from_node: str = Field(..., alias="from", description="Source node ID")
     to_node: str = Field(..., alias="to", description="Target node ID")
+    conditional: bool = Field(default=False, description="True if this is a conditional edge (if/else routing)")
+    label: str = Field(default="", description="Optional label for conditional edges (e.g., 'simple_chat', 'if file')")
 
 
 class GraphData(BaseModel):
