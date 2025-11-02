@@ -71,7 +71,7 @@ export function ProjectSidebar({ projectId }: ProjectSidebarProps) {
       label: 'Graphs',
       icon: <GraphIcon />,
       path: `/projects/${projectId}/graphs`,
-      disabled: true, // Phase 3
+      disabled: false, // Phase 3 - System Architecture View
     },
     {
       id: 'config',

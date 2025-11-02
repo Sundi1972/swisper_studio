@@ -18,7 +18,6 @@ import MenuItem from '@mui/material/MenuItem';
 import AddIcon from '@mui/icons-material/Add';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import DeleteIcon from '@mui/icons-material/Delete';
-import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import { styled } from '@mui/material/styles';
 
 import { useProjectsQuery } from '../hooks/use-projects-query';
@@ -79,22 +78,13 @@ export function ProjectListPage() {
     <Container data-testid="project-list-page">
       <Box display="flex" justifyContent="space-between" alignItems="center">
         <Typography variant="h4">Projects</Typography>
-        <Box display="flex" gap={2}>
-          <Button
-            variant="outlined"
-            startIcon={<AccountTreeIcon />}
-            onClick={() => navigate('/swisper-builder')}
-          >
-            Swisper Builder
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setIsCreateDialogOpen(true)}
-          >
-            New Project
-          </Button>
-        </Box>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => setIsCreateDialogOpen(true)}
+        >
+          New Project
+        </Button>
       </Box>
 
       <ProjectGrid>

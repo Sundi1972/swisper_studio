@@ -25,16 +25,6 @@ export function App() {
           }
         />
         
-        {/* Swisper Builder - System Architecture */}
-        <Route
-          path="/swisper-builder"
-          element={
-            <ProtectedRoute>
-              <SystemArchitectureView />
-            </ProtectedRoute>
-          }
-        />
-        
         {/* Project workspace with sidebar navigation */}
         <Route
           path="/projects/:projectId"
@@ -48,10 +38,10 @@ export function App() {
           <Route index element={<ProjectOverview />} />
           <Route path="tracing" element={<TraceListPage />} />
           <Route path="tracing/:traceId" element={<TraceDetailPage />} />
+          <Route path="graphs" element={<SystemArchitectureView />} />
           <Route path="config" element={<ConfigPage />} />
-          {/* Phase 3+: Add more routes as we build them */}
+          {/* Phase 4+: Add more routes as we build them */}
           {/* <Route path="analytics" element={<AnalyticsPage />} /> */}
-          {/* <Route path="graphs" element={<GraphsPage />} /> */}
         </Route>
         
         <Route path="/" element={<Navigate to="/projects" replace />} />

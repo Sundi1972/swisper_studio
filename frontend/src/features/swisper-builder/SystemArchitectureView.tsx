@@ -13,17 +13,11 @@ import {
   Paper,
   CircularProgress,
   Alert,
-  AppBar,
-  Toolbar,
-  Button,
 } from "@mui/material";
-import { ArrowBack } from "@mui/icons-material";
-import { useNavigate } from "react-router-dom";
 import { useSystemArchitecture } from "./hooks/useSystemArchitecture";
 import { GraphCanvas } from "@/components/graph";
 
 export const SystemArchitectureView: React.FC = () => {
-  const navigate = useNavigate();
   const { data: architecture, isLoading, error } = useSystemArchitecture();
   const [selectedAgent, setSelectedAgent] = useState<string | null>(null);
 
@@ -70,32 +64,15 @@ export const SystemArchitectureView: React.FC = () => {
 
   return (
     <Box>
-      {/* Navigation bar */}
-      <AppBar position="static" color="default" elevation={1}>
-        <Toolbar>
-          <Button
-            startIcon={<ArrowBack />}
-            onClick={() => navigate("/projects")}
-            sx={{ mr: 2 }}
-          >
-            Back to Projects
-          </Button>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            Swisper Builder
-          </Typography>
-        </Toolbar>
-      </AppBar>
-
-      <Box sx={{ p: 3 }}>
-        {/* Page header */}
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="h4" gutterBottom>
-            System Architecture
-          </Typography>
-          <Typography variant="body2" color="textSecondary">
-            Visual architecture of all Swisper agents and their execution flows
-          </Typography>
-        </Box>
+      {/* Page header */}
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="h4" gutterBottom>
+          System Architecture
+        </Typography>
+        <Typography variant="body2" color="textSecondary">
+          Visual architecture of all Swisper agents and their execution flows
+        </Typography>
+      </Box>
 
       {/* Main content: Sidebar + Graph */}
       <Box sx={{ display: "flex", gap: 2, height: "calc(100vh - 250px)" }}>
@@ -185,7 +162,6 @@ export const SystemArchitectureView: React.FC = () => {
             />
           </Box>
         </Paper>
-      </Box>
       </Box>
     </Box>
   );
