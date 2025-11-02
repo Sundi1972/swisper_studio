@@ -716,7 +716,47 @@ async def intent_node(state):
 
 ---
 
-### **Phase 5: Visual Trace Configuration** (Backlog - Future)
+### **Phase 5: Dynamic Graph Reading & Advanced Visualization** (Backlog - Future)
+
+**Business Value:** Auto-sync agent graphs, no manual JSON maintenance, advanced graph features
+
+#### Dynamic Agent Graph Reading
+**Current:** Static JSON manually synced from Swisper code  
+**Future:** Dynamic reading from live Swisper deployment
+
+**Option A: Git Repository Reading**
+- [ ] Connect to Swisper project Git repository
+- [ ] Python AST parser to extract StateGraph definitions
+- [ ] Parse `build_graph()` methods in agent files
+- [ ] Auto-detect nodes, edges, conditional routing
+- [ ] CLI tool: `sync_agent_graphs.py` to update JSON
+- [ ] CI check to detect drift between JSON and actual code
+
+**Option B: Swisper Admin Protocol (SAP) - Recommended**
+- [ ] Swisper exposes endpoint: `GET /api/admin/system-architecture`
+- [ ] Swisper introspects its own agents at runtime
+- [ ] Returns complete graph definitions with conditional edges
+- [ ] SwisperStudio fetches dynamically (no JSON to maintain)
+- [ ] Part of Phase 4 SAP specification
+- [ ] Always accurate, no sync issues
+
+**Option C: Hybrid Approach**
+- [ ] SAP endpoint for runtime graphs (live deployments)
+- [ ] Git reading for dev/analysis (reading code directly)
+- [ ] SwisperStudio supports both modes
+
+**Benefits:**
+- ✅ Always accurate (auto-syncs)
+- ✅ No manual JSON maintenance
+- ✅ Discovers new agents automatically
+- ✅ Validates against actual implementation
+- ✅ Works with multiple Swisper versions
+
+**Estimated Effort:** 2-3 days (AST parsing) or 1 day (SAP endpoint in Swisper)
+
+---
+
+### **Phase 5b: Visual Trace Configuration** (Backlog - Future)
 
 **Business Value:** PO can enable/disable tracing without touching code
 

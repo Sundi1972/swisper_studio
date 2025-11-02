@@ -149,29 +149,35 @@ export const SystemArchitectureView: React.FC = () => {
             </Typography>
             
             {/* Legend */}
-            <Box sx={{ mt: 1, display: "flex", gap: 2, flexWrap: "wrap" }}>
-              <Typography variant="caption" color="textSecondary">
-                <Box component="span" sx={{ color: "#d946ef", fontWeight: 600 }}>●</Box> LLM Call (GENERATION)
-              </Typography>
-              <Typography variant="caption" color="textSecondary">
-                <Box component="span" sx={{ color: "#fb923c", fontWeight: 600 }}>●</Box> Tool
-              </Typography>
-              <Typography variant="caption" color="textSecondary">
-                <Box component="span" sx={{ color: "#60a5fa", fontWeight: 600 }}>●</Box> Processing (SPAN)
-              </Typography>
-              <Typography variant="caption" color="textSecondary">
-                --- Conditional Edge
+            <Box sx={{ mt: 1, mb: 1 }}>
+              <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", mb: 0.5 }}>
+                <Typography variant="caption" color="textSecondary">
+                  <Box component="span" sx={{ color: "#d946ef", fontWeight: 600 }}>●</Box> LLM Call (GENERATION)
+                </Typography>
+                <Typography variant="caption" color="textSecondary">
+                  <Box component="span" sx={{ color: "#fb923c", fontWeight: 600 }}>●</Box> Tool
+                </Typography>
+                <Typography variant="caption" color="textSecondary">
+                  <Box component="span" sx={{ color: "#60a5fa", fontWeight: 600 }}>●</Box> Processing (SPAN)
+                </Typography>
+                <Typography variant="caption" color="textSecondary">
+                  --- Conditional Edge
+                </Typography>
+              </Box>
+              <Typography variant="caption" color="textSecondary" sx={{ fontStyle: "italic" }}>
+                💡 Drag nodes to rearrange the layout. Your layout will be saved automatically.
               </Typography>
             </Box>
           </Box>
 
           {/* Graph canvas */}
-          <Box sx={{ height: "calc(100% - 80px)" }}>
+          <Box sx={{ height: "calc(100% - 120px)" }}>
             <GraphCanvas
               graph={{
                 nodes: currentAgent.nodes,
                 edges: currentAgent.edges,
               }}
+              persistenceKey={`agent-${currentAgent.name}`}
               onNodeClick={(nodeId) => {
                 console.log("Node clicked:", nodeId);
                 // Future: Show node details panel

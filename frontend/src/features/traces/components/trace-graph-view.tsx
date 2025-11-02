@@ -57,12 +57,16 @@ export const TraceGraphView: React.FC<TraceGraphViewProps> = ({ traceId }) => {
         <Typography variant="body2" color="textSecondary">
           {graph.nodes.length} nodes • {graph.edges.length} edges
         </Typography>
+        <Typography variant="caption" color="textSecondary" sx={{ display: "block", mt: 0.5 }}>
+          💡 Tip: Drag nodes to rearrange the layout. Your layout will be saved automatically.
+        </Typography>
       </Box>
 
       {/* Graph visualization */}
       <Box sx={{ height: 600, border: 1, borderColor: "divider", borderRadius: 1 }}>
         <GraphCanvas
           graph={graph}
+          persistenceKey={`trace-${traceId}`}
           onNodeClick={(nodeId) => {
             console.log("Node clicked:", nodeId);
             // Future: Show observation details when node clicked

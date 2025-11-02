@@ -1,15 +1,16 @@
 // Reusable vis-network graph visualization component
 // Adapted from Langfuse's TraceGraphCanvas.tsx
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useCallback, useState } from "react";
 import { Network, DataSet } from "vis-network/standalone";
-import { Box, IconButton, Paper } from "@mui/material";
-import { ZoomIn, ZoomOut, RestartAlt } from "@mui/icons-material";
+import { Box, IconButton, Paper, Tooltip } from "@mui/material";
+import { ZoomIn, ZoomOut, RestartAlt, AccountTree } from "@mui/icons-material";
 import { GraphData } from "./types";
 
 interface GraphCanvasProps {
   graph: GraphData;
   onNodeClick?: (nodeId: string) => void;
+  persistenceKey?: string; // Optional key for persisting layout in localStorage
 }
 
 // Color scheme from Langfuse (adapted for our observation types)
@@ -33,17 +34,48 @@ function getNodeColor(type: string) {
 export const GraphCanvas: React.FC<GraphCanvasProps> = ({
   graph,
   onNodeClick,
+  persistenceKey,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const networkRef = useRef<Network | null>(null);
+  const [resetKey, setResetKey] = useState(0); // Force re-mount on reset
+
+  // Load saved positions from localStorage
+  const loadSavedPositions = useCallback(() => {
+    if (!persistenceKey) return null;
+    try {
+      const saved = localStorage.getItem(`graph-layout-${persistenceKey}`);
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      console.warn("Failed to load saved graph positions:", e);
+      return null;
+    }
+  }, [persistenceKey]);
+
+  // Save positions to localStorage
+  const savePositions = useCallback(() => {
+    if (!persistenceKey || !networkRef.current) return;
+    try {
+      const positions = networkRef.current.getPositions();
+      localStorage.setItem(
+        `graph-layout-${persistenceKey}`,
+        JSON.stringify(positions)
+      );
+    } catch (e) {
+      console.warn("Failed to save graph positions:", e);
+    }
+  }, [persistenceKey]);
 
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Convert graph nodes to vis-network format with colors
+    const savedPositions = loadSavedPositions();
+
+    // Convert graph nodes to vis-network format with colors and saved positions
     const nodesDataSet = new DataSet(
       graph.nodes.map((node) => {
         const colorConfig = getNodeColor(node.type);
+        const savedPos = savedPositions?.[node.id];
         return {
           id: node.id,
           label: node.label,
@@ -52,6 +84,7 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
             background: colorConfig.background,
           },
           borderWidth: colorConfig.borderWidth,
+          ...(savedPos && { x: savedPos.x, y: savedPos.y }), // Restore saved position
         };
       })
     );
@@ -76,14 +109,8 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       },
       {
         layout: {
-          hierarchical: {
-            enabled: true,
-            direction: "LR", // Left to right - better for branching
-            levelSeparation: 200,
-            nodeSpacing: 120,
-            sortMethod: "directed",
-            shakeTowards: "leaves",
-          },
+          // Force-directed layout - better for complex graphs with cycles
+          randomSeed: 42, // Consistent initial layout
         },
         nodes: {
           shape: "box",
@@ -96,12 +123,30 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
           color: { color: "#64748b" },
           smooth: {
             enabled: true,
-            type: "cubicBezier",
+            type: "dynamic",
             roundness: 0.5,
           },
         },
         physics: {
-          enabled: false, // Disable physics for stable layout
+          enabled: !savedPositions, // Enable physics only if no saved positions
+          stabilization: {
+            enabled: true,
+            iterations: 200,
+            updateInterval: 25,
+          },
+          barnesHut: {
+            gravitationalConstant: -4000,
+            centralGravity: 0.3,
+            springLength: 150,
+            springConstant: 0.04,
+            damping: 0.09,
+            avoidOverlap: 0.5,
+          },
+        },
+        interaction: {
+          dragNodes: true, // Enable node dragging
+          dragView: true, // Enable canvas panning
+          zoomView: true,
         },
       }
     );
@@ -115,13 +160,27 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
       });
     }
 
+    // Save positions after dragging
+    network.on("dragEnd", () => {
+      savePositions();
+    });
+
+    // Disable physics after stabilization to allow manual positioning
+    network.on("stabilizationIterationsDone", () => {
+      network.setOptions({ physics: { enabled: false } });
+      if (!savedPositions) {
+        // Save initial layout
+        savePositions();
+      }
+    });
+
     networkRef.current = network;
 
     // Cleanup on unmount to prevent memory leaks
     return () => {
       network.destroy();
     };
-  }, [graph, onNodeClick]);
+  }, [graph, onNodeClick, loadSavedPositions, savePositions, resetKey]);
 
   const handleZoomIn = () => {
     if (networkRef.current) {
@@ -137,9 +196,76 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
     }
   };
 
+  const handleRedrawConnections = () => {
+    if (!networkRef.current) return;
+
+    // Get current node positions
+    const positions = networkRef.current.getPositions();
+    const nodeIds = Object.keys(positions);
+
+    // Update nodes to be fixed at current positions
+    const network = networkRef.current as any; // Access internal API
+    nodeIds.forEach((nodeId) => {
+      if (network.body?.nodes[nodeId]) {
+        network.body.nodes[nodeId].setOptions({
+          fixed: { x: true, y: true },
+        });
+      }
+    });
+
+    // Enable physics briefly to optimize edge routing
+    networkRef.current.setOptions({
+      physics: {
+        enabled: true,
+        stabilization: {
+          enabled: true,
+          iterations: 100,
+          updateInterval: 10,
+        },
+      },
+    });
+
+    // Function to unfix nodes after optimization
+    const unfixNodes = () => {
+      if (!networkRef.current) return;
+      const net = networkRef.current as any;
+
+      // Disable physics
+      networkRef.current.setOptions({ physics: { enabled: false } });
+
+      // Unfix all nodes so they're draggable again
+      nodeIds.forEach((nodeId) => {
+        if (net.body?.nodes[nodeId]) {
+          net.body.nodes[nodeId].setOptions({
+            fixed: { x: false, y: false },
+          });
+        }
+      });
+
+      // Save the positions (node positions unchanged, but edges optimized)
+      savePositions();
+    };
+
+    // Try event-based first
+    networkRef.current.once("stabilizationIterationsDone", unfixNodes);
+
+    // Fallback timeout to ensure nodes get unfixed (in case event doesn't fire)
+    setTimeout(() => {
+      unfixNodes();
+    }, 2000); // 2 seconds should be enough for 100 iterations
+  };
+
   const handleReset = () => {
-    if (networkRef.current) {
-      networkRef.current.fit();
+    if (persistenceKey) {
+      // Clear saved positions from localStorage
+      localStorage.removeItem(`graph-layout-${persistenceKey}`);
+      // Force component re-mount to generate fresh layout
+      setResetKey((prev) => prev + 1);
+    } else {
+      // No persistence - just fit to view
+      if (networkRef.current) {
+        networkRef.current.fit();
+      }
     }
   };
 
@@ -158,15 +284,26 @@ export const GraphCanvas: React.FC<GraphCanvasProps> = ({
           p: 0.5,
         }}
       >
-        <IconButton size="small" onClick={handleZoomIn} title="Zoom In">
-          <ZoomIn />
-        </IconButton>
-        <IconButton size="small" onClick={handleZoomOut} title="Zoom Out">
-          <ZoomOut />
-        </IconButton>
-        <IconButton size="small" onClick={handleReset} title="Reset View">
-          <RestartAlt />
-        </IconButton>
+        <Tooltip title="Zoom In">
+          <IconButton size="small" onClick={handleZoomIn}>
+            <ZoomIn />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Zoom Out">
+          <IconButton size="small" onClick={handleZoomOut}>
+            <ZoomOut />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Redraw Connections - Optimize edge curves while keeping node positions">
+          <IconButton size="small" onClick={handleRedrawConnections}>
+            <AccountTree />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Reset Layout - Clear saved positions and generate fresh layout">
+          <IconButton size="small" onClick={handleReset}>
+            <RestartAlt />
+          </IconButton>
+        </Tooltip>
       </Paper>
 
       {/* Graph canvas */}

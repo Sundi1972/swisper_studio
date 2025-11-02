@@ -1,4 +1,7 @@
 {
+  "_comment": "⚠️ MANUAL SYNC REQUIRED: This file must be manually updated when Swisper agent graphs change. See reference/swisper/backend/app/api/services/agents/*/build_graph() or _create_workflow() methods. Future: Will be replaced by dynamic reading via SAP (Swisper Admin Protocol) in Phase 5.",
+  "_last_sync_date": "2025-11-02",
+  "_source": "reference/swisper/backend/app/api/services/agents/",
   "agents": [
     {
       "name": "global_supervisor",
@@ -137,7 +140,7 @@
         {
           "id": "productivity_planner",
           "label": "Productivity Planner",
-          "type": "SPAN"
+          "type": "GENERATION"
         },
         {
           "id": "productivity_write",
@@ -153,15 +156,45 @@
       "edges": [
         {
           "from": "provider_selection",
-          "to": "productivity_planner"
+          "to": "productivity_planner",
+          "conditional": true,
+          "label": "if routing phase"
         },
         {
           "from": "productivity_planner",
-          "to": "productivity_write"
+          "to": "provider_selection",
+          "conditional": true,
+          "label": "if multi-provider"
+        },
+        {
+          "from": "productivity_planner",
+          "to": "productivity_write",
+          "conditional": true,
+          "label": "if needs write"
+        },
+        {
+          "from": "productivity_planner",
+          "to": "tool_execution",
+          "conditional": true,
+          "label": "if direct execute"
         },
         {
           "from": "productivity_write",
-          "to": "tool_execution"
+          "to": "productivity_write",
+          "conditional": true,
+          "label": "if clarification loop"
+        },
+        {
+          "from": "productivity_write",
+          "to": "tool_execution",
+          "conditional": true,
+          "label": "if ready to execute"
+        },
+        {
+          "from": "tool_execution",
+          "to": "productivity_planner",
+          "conditional": true,
+          "label": "if multi-step"
         }
       ]
     },
@@ -172,27 +205,55 @@
         {
           "id": "research_planner",
           "label": "Research Planner",
-          "type": "SPAN"
+          "type": "GENERATION"
         },
         {
-          "id": "search",
-          "label": "Search",
+          "id": "tool_execution",
+          "label": "Web Search Tool",
           "type": "TOOL"
         },
         {
-          "id": "evaluator",
-          "label": "Evaluator",
-          "type": "SPAN"
+          "id": "completion_evaluator",
+          "label": "Completion Evaluator",
+          "type": "GENERATION"
         }
       ],
       "edges": [
         {
           "from": "research_planner",
-          "to": "search"
+          "to": "tool_execution",
+          "conditional": true,
+          "label": "if needs search"
         },
         {
-          "from": "search",
-          "to": "evaluator"
+          "from": "research_planner",
+          "to": "completion_evaluator",
+          "conditional": true,
+          "label": "if evaluate"
+        },
+        {
+          "from": "research_planner",
+          "to": "research_planner",
+          "conditional": true,
+          "label": "if replan"
+        },
+        {
+          "from": "tool_execution",
+          "to": "completion_evaluator",
+          "conditional": true,
+          "label": "if evaluate results"
+        },
+        {
+          "from": "tool_execution",
+          "to": "research_planner",
+          "conditional": true,
+          "label": "if needs refinement"
+        },
+        {
+          "from": "completion_evaluator",
+          "to": "research_planner",
+          "conditional": true,
+          "label": "if incomplete"
         }
       ]
     },
@@ -203,18 +264,26 @@
         {
           "id": "wealth_planner",
           "label": "Wealth Planner",
-          "type": "SPAN"
+          "type": "GENERATION"
         },
         {
-          "id": "data_fetch",
-          "label": "Data Fetch",
+          "id": "tool_execution",
+          "label": "Financial Data Tool",
           "type": "TOOL"
         }
       ],
       "edges": [
         {
           "from": "wealth_planner",
-          "to": "data_fetch"
+          "to": "tool_execution",
+          "conditional": true,
+          "label": "if needs data"
+        },
+        {
+          "from": "tool_execution",
+          "to": "wealth_planner",
+          "conditional": true,
+          "label": "if refine query"
         }
       ]
     },
@@ -223,29 +292,28 @@
       "description": "Document search and RAG (Retrieval-Augmented Generation) agent",
       "nodes": [
         {
-          "id": "query_processor",
-          "label": "Query Processor",
-          "type": "SPAN"
-        },
-        {
-          "id": "retrieval",
-          "label": "Retrieval",
-          "type": "RETRIEVER"
-        },
-        {
-          "id": "response_generator",
-          "label": "Response Generator",
+          "id": "document_search_planner_node",
+          "label": "Document Search Planner",
           "type": "GENERATION"
+        },
+        {
+          "id": "doc_tool_execution_node",
+          "label": "Document Retrieval Tool",
+          "type": "RETRIEVER"
         }
       ],
       "edges": [
         {
-          "from": "query_processor",
-          "to": "retrieval"
+          "from": "document_search_planner_node",
+          "to": "doc_tool_execution_node",
+          "conditional": true,
+          "label": "if execute search"
         },
         {
-          "from": "retrieval",
-          "to": "response_generator"
+          "from": "doc_tool_execution_node",
+          "to": "document_search_planner_node",
+          "conditional": false,
+          "label": "evaluate results"
         }
       ]
     }
