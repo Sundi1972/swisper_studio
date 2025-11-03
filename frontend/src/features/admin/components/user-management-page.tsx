@@ -20,8 +20,6 @@ import {
   IconButton,
   CircularProgress,
   Alert,
-  AppBar,
-  Toolbar,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -32,12 +30,8 @@ import { listUsers } from '@/api/users';
 import type { User } from '@/types/auth';
 import { EditUserDialog } from './edit-user-dialog';
 import { CreateUserDialog } from './create-user-dialog';
-import { UserMenu } from '../../auth/components/user-menu';
-import { SwisperLogo } from '@/components/swisper-logo';
-import { useNavigate } from 'react-router-dom';
 
 export function UserManagementPage() {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -72,21 +66,6 @@ export function UserManagementPage() {
   };
 
   return (
-    <>
-      {/* Header */}
-      <AppBar position="static" color="default" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Toolbar>
-          <Box sx={{ mr: 2, cursor: 'pointer' }} onClick={() => navigate('/projects')}>
-            <SwisperLogo showStudio width={120} />
-          </Box>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            User Management
-          </Typography>
-          <UserMenu />
-        </Toolbar>
-      </AppBar>
-
-      {/* Content */}
       <Box sx={{ p: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
           <Typography variant="h4">Users</Typography>
@@ -190,7 +169,6 @@ export function UserManagementPage() {
           />
         )}
       </Box>
-    </>
   );
 }
 

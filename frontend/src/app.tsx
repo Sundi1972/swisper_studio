@@ -1,4 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Box } from '@mui/material';
+import { GlobalHeader } from './components/global-header';
 import { LoginPage } from './features/auth/components/login-page';
 import { ProjectListPage } from './features/projects/components/project-list-page';
 import { ProjectLayout } from './features/projects/components/project-layout';
@@ -9,10 +11,16 @@ import { ConfigPage } from './features/config/components/config-page';
 import { SystemArchitectureView } from './features/swisper-builder';
 import { ProtectedRoute } from './features/auth/components/protected-route';
 import { UserManagementPage } from './features/admin/components/user-management-page';
+import { getUser } from './features/auth/utils/auth-storage';
 
 export function App() {
+  const user = getUser();
+  const showGlobalHeader = user !== null; // Show header when authenticated
+
   return (
     <BrowserRouter>
+      {showGlobalHeader && <GlobalHeader />}
+      
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         
@@ -32,6 +40,18 @@ export function App() {
           element={
             <ProtectedRoute>
               <UserManagementPage />
+            </ProtectedRoute>
+          }
+        />
+        
+        {/* System Architecture (global view) */}
+        <Route
+          path="/system-architecture"
+          element={
+            <ProtectedRoute>
+              <Box sx={{ p: 3 }}>
+                <SystemArchitectureView />
+              </Box>
             </ProtectedRoute>
           }
         />

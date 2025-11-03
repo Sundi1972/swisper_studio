@@ -15,8 +15,6 @@ import CircularProgress from '@mui/material/CircularProgress';
 import IconButton from '@mui/material/IconButton';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
-import AppBar from '@mui/material/AppBar';
-import Toolbar from '@mui/material/Toolbar';
 import AddIcon from '@mui/icons-material/Add';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -25,8 +23,6 @@ import { styled } from '@mui/material/styles';
 import { useProjectsQuery } from '../hooks/use-projects-query';
 import { useDeleteProjectMutation } from '../hooks/use-delete-project-mutation';
 import { ProjectCreateDialog } from './project-create-dialog';
-import { UserMenu } from '../../auth/components/user-menu';
-import { SwisperLogo } from '@/components/swisper-logo';
 
 const Container = styled(Box)(({ theme }) => ({
   padding: theme.spacing(3),
@@ -79,18 +75,6 @@ export function ProjectListPage() {
   }
 
   return (
-    <>
-      {/* Header with UserMenu */}
-      <AppBar position="static" color="default" elevation={0} sx={{ borderBottom: 1, borderColor: 'divider' }}>
-        <Toolbar>
-          <Box sx={{ mr: 2 }}>
-            <SwisperLogo showStudio width={120} />
-          </Box>
-          <Box sx={{ flexGrow: 1 }} />
-          <UserMenu />
-        </Toolbar>
-      </AppBar>
-
       <Container data-testid="project-list-page">
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Typography variant="h4">Projects</Typography>
@@ -160,12 +144,11 @@ export function ProjectListPage() {
         </Box>
       )}
 
-        <ProjectCreateDialog
-          isOpen={isCreateDialogOpen}
-          onClose={() => setIsCreateDialogOpen(false)}
-        />
-      </Container>
-    </>
+      <ProjectCreateDialog
+        isOpen={isCreateDialogOpen}
+        onClose={() => setIsCreateDialogOpen(false)}
+      />
+    </Container>
   );
 }
 
