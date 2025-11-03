@@ -13,7 +13,8 @@ from datetime import datetime
 @pytest.mark.asyncio
 async def test_create_observation_with_llm_telemetry_auto_cost(
     client: AsyncClient,
-    api_headers: dict[str, str]
+    api_headers: dict[str, str],
+    test_project_payload: dict
 ) -> None:
     """
     CI: Golden path - Observation with LLM telemetry auto-calculates costs.
@@ -22,13 +23,10 @@ async def test_create_observation_with_llm_telemetry_auto_cost(
     Expected: Observation created with calculated costs using default pricing.
     """
     # Create project first
+    payload = {**test_project_payload, "name": "Auto Cost Test Project"}
     project_response = await client.post(
         "/api/v1/projects",
-        json={
-            "name": "Auto Cost Test Project",
-            "swisper_url": "http://localhost:8000",
-            "swisper_api_key": "auto-cost-key"
-        },
+        json=payload,
         headers=api_headers
     )
     assert project_response.status_code == 201
@@ -90,20 +88,18 @@ async def test_create_observation_with_llm_telemetry_auto_cost(
 @pytest.mark.asyncio
 async def test_create_observation_without_tokens_no_cost(
     client: AsyncClient,
-    api_headers: dict[str, str]
+    api_headers: dict[str, str],
+    test_project_payload: dict
 ) -> None:
     """
     Edge case: Observation without token counts doesn't calculate cost.
     Expected: Cost fields are None.
     """
     # Create project and trace
+    payload = {**test_project_payload, "name": "No Cost Test Project"}
     project_response = await client.post(
         "/api/v1/projects",
-        json={
-            "name": "No Cost Test Project",
-            "swisper_url": "http://localhost:8000",
-            "swisper_api_key": "no-cost-key"
-        },
+        json=payload,
         headers=api_headers
     )
     project_id = project_response.json()["id"]
@@ -144,20 +140,18 @@ async def test_create_observation_without_tokens_no_cost(
 @pytest.mark.asyncio
 async def test_update_observation_recalculates_cost(
     client: AsyncClient,
-    api_headers: dict[str, str]
+    api_headers: dict[str, str],
+    test_project_payload: dict
 ) -> None:
     """
     Business case: Updating observation with tokens triggers cost recalculation.
     Expected: Costs updated when token counts are added.
     """
     # Create project and trace
+    payload = {**test_project_payload, "name": "Update Cost Test Project"}
     project_response = await client.post(
         "/api/v1/projects",
-        json={
-            "name": "Update Cost Test Project",
-            "swisper_url": "http://localhost:8000",
-            "swisper_api_key": "update-cost-key"
-        },
+        json=payload,
         headers=api_headers
     )
     project_id = project_response.json()["id"]
@@ -217,20 +211,18 @@ async def test_update_observation_recalculates_cost(
 @pytest.mark.asyncio
 async def test_create_observation_with_model_parameters(
     client: AsyncClient,
-    api_headers: dict[str, str]
+    api_headers: dict[str, str],
+    test_project_payload: dict
 ) -> None:
     """
     Business case: Observation captures LLM model parameters.
     Expected: Model parameters stored correctly.
     """
     # Create project and trace
+    payload = {**test_project_payload, "name": "Model Params Test"}
     project_response = await client.post(
         "/api/v1/projects",
-        json={
-            "name": "Model Params Test",
-            "swisper_url": "http://localhost:8000",
-            "swisper_api_key": "params-key"
-        },
+        json=payload,
         headers=api_headers
     )
     project_id = project_response.json()["id"]
@@ -278,20 +270,18 @@ async def test_create_observation_with_model_parameters(
 @pytest.mark.asyncio
 async def test_create_observation_with_error_status(
     client: AsyncClient,
-    api_headers: dict[str, str]
+    api_headers: dict[str, str],
+    test_project_payload: dict
 ) -> None:
     """
     Business case: Observation captures errors with ERROR level.
     Expected: Error level and message stored.
     """
     # Create project and trace
+    payload = {**test_project_payload, "name": f"Error Test Project {uuid4()}"}  # Unique name
     project_response = await client.post(
         "/api/v1/projects",
-        json={
-            "name": f"Error Test Project {uuid4()}",  # Unique name
-            "swisper_url": "http://localhost:8000",
-            "swisper_api_key": f"error-key-{uuid4()}"
-        },
+        json=payload,
         headers=api_headers
     )
     assert project_response.status_code == 201, f"Project creation failed: {project_response.json()}"

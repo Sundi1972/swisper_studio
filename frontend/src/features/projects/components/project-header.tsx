@@ -1,6 +1,8 @@
 import { AppBar, Toolbar, Typography, Chip, Box, Breadcrumbs, Link } from '@mui/material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useProject } from '../hooks/use-project';
+import { EnvironmentSelector } from '../../../components/environment-selector';
+import { useEnvironments } from '../../config/hooks/use-environments';
 
 interface ProjectHeaderProps {
   projectId: string;
@@ -17,6 +19,9 @@ export function ProjectHeader({ projectId }: ProjectHeaderProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { data: project, isLoading } = useProject(projectId);
+  
+  // Load environments for this project (updates context)
+  useEnvironments(projectId);
 
   // Extract current page from path
   const pathSegments = location.pathname.split('/').filter(Boolean);
@@ -86,6 +91,9 @@ export function ProjectHeader({ projectId }: ProjectHeaderProps) {
             )}
           </Box>
         </Box>
+        
+        {/* Environment Selector */}
+        <EnvironmentSelector />
       </Toolbar>
     </AppBar>
   );

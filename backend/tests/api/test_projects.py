@@ -17,18 +17,28 @@ from httpx import AsyncClient
 @pytest.mark.asyncio
 async def test_create_project_success(client: AsyncClient, api_headers: dict[str, str]) -> None:
     """
-    CI: Golden path - Project creation works end-to-end.
+    CI: Golden path - Project creation with 3 environments works end-to-end.
     
-    Business case: User creates first project to connect to their Swisper instance.
-    Expected: Project created successfully with all required fields.
+    Business case: User creates first project with dev, staging, production environments.
+    Expected: Project created successfully with all 3 environments.
     """
     response = await client.post(
         "/api/v1/projects",
         json={
             "name": "Production Swisper",
-            "swisper_url": "https://swisper.example.com",
-            "swisper_api_key": "test-api-key-12345",
-            "description": "Main production instance"
+            "description": "Main production instance",
+            "dev_environment": {
+                "swisper_url": "http://localhost:8001/mock-swisper",
+                "swisper_api_key": "dev-api-key-12345"
+            },
+            "staging_environment": {
+                "swisper_url": "http://localhost:8001/mock-swisper",
+                "swisper_api_key": "staging-api-key-12345"
+            },
+            "production_environment": {
+                "swisper_url": "https://swisper.example.com",
+                "swisper_api_key": "prod-api-key-12345"
+            }
         },
         headers=api_headers
     )
@@ -39,11 +49,12 @@ async def test_create_project_success(client: AsyncClient, api_headers: dict[str
     # Verify response structure
     assert "id" in data
     assert data["name"] == "Production Swisper"
-    assert data["swisper_url"] == "https://swisper.example.com"
     assert data["description"] == "Main production instance"
     
     # Security: API key should be hashed, never returned
     assert "swisper_api_key" not in data
+    # Note: swisper_url moved to environments (not in project response)
+    assert "swisper_url" not in data
     
     # Langfuse pattern: timestamps included
     assert "created_at" in data
@@ -94,18 +105,14 @@ async def test_pagination_page_must_be_positive(client: AsyncClient, api_headers
 
 @pytest.mark.ci_critical
 @pytest.mark.asyncio
-async def test_create_project_missing_api_key(client: AsyncClient) -> None:
+async def test_create_project_missing_api_key(client: AsyncClient, test_project_payload: dict) -> None:
     """
     CI: Error case - Request without API key should be rejected.
     Expected: 401 Unauthorized.
     """
     response = await client.post(
         "/api/v1/projects",
-        json={
-            "name": "Test Project",
-            "swisper_url": "https://swisper.example.com",
-            "swisper_api_key": "test-key"
-        }
+        json=test_project_payload
         # No headers (no API key)
     )
     
@@ -116,7 +123,8 @@ async def test_create_project_missing_api_key(client: AsyncClient) -> None:
 @pytest.mark.asyncio
 async def test_create_project_invalid_api_key(
     client: AsyncClient,
-    invalid_api_headers: dict[str, str]
+    invalid_api_headers: dict[str, str],
+    test_project_payload: dict
 ) -> None:
     """
     Error case: Invalid API key should be rejected.
@@ -124,11 +132,7 @@ async def test_create_project_invalid_api_key(
     """
     response = await client.post(
         "/api/v1/projects",
-        json={
-            "name": "Test Project",
-            "swisper_url": "https://swisper.example.com",
-            "swisper_api_key": "test-key"
-        },
+        json=test_project_payload,
         headers=invalid_api_headers
     )
     
@@ -149,7 +153,7 @@ async def test_create_project_missing_required_fields(
         "/api/v1/projects",
         json={
             "name": "Test Project"
-            # Missing swisper_url and swisper_api_key
+            # Missing environments
         },
         headers=api_headers
     )
@@ -157,10 +161,11 @@ async def test_create_project_missing_required_fields(
     assert response.status_code == 422
     errors = response.json()["detail"]
     
-    # Verify both missing fields are reported
+    # Verify missing environment fields are reported
     error_fields = [e["loc"][-1] for e in errors]
-    assert "swisper_url" in error_fields
-    assert "swisper_api_key" in error_fields
+    assert "dev_environment" in error_fields
+    assert "staging_environment" in error_fields
+    assert "production_environment" in error_fields
 
 
 @pytest.mark.asyncio
@@ -173,8 +178,18 @@ async def test_create_project_invalid_url(client: AsyncClient, api_headers: dict
         "/api/v1/projects",
         json={
             "name": "Test Project",
-            "swisper_url": "not-a-valid-url",  # Invalid URL
-            "swisper_api_key": "test-key"
+            "dev_environment": {
+                "swisper_url": "not-a-valid-url",  # Invalid URL
+                "swisper_api_key": "test-key-12345"
+            },
+            "staging_environment": {
+                "swisper_url": "http://localhost:8001",
+                "swisper_api_key": "staging-key-12345"
+            },
+            "production_environment": {
+                "swisper_url": "http://localhost:8001",
+                "swisper_api_key": "prod-key-12345"
+            }
         },
         headers=api_headers
     )
@@ -185,18 +200,16 @@ async def test_create_project_invalid_url(client: AsyncClient, api_headers: dict
 
 
 @pytest.mark.asyncio
-async def test_create_project_empty_name(client: AsyncClient, api_headers: dict[str, str]) -> None:
+async def test_create_project_empty_name(client: AsyncClient, api_headers: dict[str, str], test_project_payload: dict) -> None:
     """
     Error case: Empty or whitespace-only name should be rejected.
     Expected: 422 validation error.
     """
+    payload = {**test_project_payload, "name": "   "}  # Whitespace only
+    
     response = await client.post(
         "/api/v1/projects",
-        json={
-            "name": "   ",  # Whitespace only
-            "swisper_url": "https://swisper.example.com",
-            "swisper_api_key": "test-key"
-        },
+        json=payload,
         headers=api_headers
     )
     
@@ -214,20 +227,18 @@ async def test_create_project_empty_name(client: AsyncClient, api_headers: dict[
 @pytest.mark.asyncio
 async def test_create_project_rejects_unknown_fields(
     client: AsyncClient,
-    api_headers: dict[str, str]
+    api_headers: dict[str, str],
+    test_project_payload: dict
 ) -> None:
     """
     Validation: Unknown fields should be rejected (strict validation).
     Expected: 422 validation error.
     """
+    payload = {**test_project_payload, "unknown_field": "should be rejected"}  # Unknown field
+    
     response = await client.post(
         "/api/v1/projects",
-        json={
-            "name": "Test Project",
-            "swisper_url": "https://swisper.example.com",
-            "swisper_api_key": "test-key",
-            "unknown_field": "should be rejected"  # Unknown field
-        },
+        json=payload,
         headers=api_headers
     )
     

@@ -9,19 +9,16 @@ from httpx import AsyncClient
 
 
 @pytest.mark.asyncio
-async def test_get_trace_tree_api(client: AsyncClient, api_headers: dict[str, str]) -> None:
+async def test_get_trace_tree_api(client: AsyncClient, api_headers: dict[str, str], test_project_payload: dict) -> None:
     """
     Business case: Fetch observation tree via API.
     Expected: Returns nested tree structure with aggregated metrics.
     """
     # Create project
+    payload = {**test_project_payload, "name": f"Tree API Test {uuid4()}"}
     project_response = await client.post(
         "/api/v1/projects",
-        json={
-            "name": f"Tree API Test {uuid4()}",
-            "swisper_url": "http://localhost:8000",
-            "swisper_api_key": f"tree-api-{uuid4()}"
-        },
+        json=payload,
         headers=api_headers
     )
     assert project_response.status_code == 201

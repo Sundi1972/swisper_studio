@@ -18,6 +18,7 @@ from sqlalchemy import select, func
 
 from app.api.deps import APIKey, DBSession
 from app.models import Project
+from app.models.project_environment import ProjectEnvironment
 
 
 router = APIRouter()
@@ -27,14 +28,23 @@ router = APIRouter()
 # REQUEST/RESPONSE MODELS
 # ============================================================================
 
-class ProjectCreate(BaseModel):
-    """Request model for creating a project"""
-    
-    name: str = Field(..., min_length=1, max_length=255, description="Project name")
+class EnvironmentCreate(BaseModel):
+    """Request model for creating an environment"""
     swisper_url: HttpUrl = Field(..., description="Swisper instance URL")
     swisper_api_key: str = Field(..., min_length=10, description="Swisper API key")
+
+
+class ProjectCreate(BaseModel):
+    """Request model for creating a project with 3 environments"""
+    
+    name: str = Field(..., min_length=1, max_length=255, description="Project name")
     description: str | None = Field(None, max_length=1000, description="Project description")
     meta: dict[str, Any] | None = Field(None, description="Additional metadata")
+    
+    # Three environments (dev, staging, production)
+    dev_environment: EnvironmentCreate = Field(..., description="Development environment")
+    staging_environment: EnvironmentCreate = Field(..., description="Staging environment")
+    production_environment: EnvironmentCreate = Field(..., description="Production environment")
     
     model_config = {"extra": "forbid"}  # Strict validation - reject unknown fields
     
@@ -70,12 +80,14 @@ class ProjectResponse(BaseModel):
     
     id: str
     name: str
-    swisper_url: str
     description: str | None
     meta: dict[str, Any] | None
     created_at: datetime
     updated_at: datetime
     deleted_at: datetime | None
+    
+    # Note: swisper_url and api_key moved to ProjectEnvironment
+    # Use GET /projects/{id}/environments to get environment details
     
     model_config = {"from_attributes": True}
 
@@ -114,22 +126,14 @@ async def create_project(
     api_key: APIKey,
 ) -> Project:
     """
-    Create a new project.
+    Create a new project with 3 environments (dev, staging, production).
     
-    Projects represent connections to Swisper deployments.
+    Projects represent customer deployments with multiple environments.
     API keys are hashed before storage (security best practice).
     """
-    # Hash API key before storage (Langfuse pattern: never store plaintext)
-    hashed_key = bcrypt.hashpw(
-        data.swisper_api_key.encode("utf-8"),
-        bcrypt.gensalt()
-    )
-    
     # Create project
     project = Project(
         name=data.name,
-        swisper_url=str(data.swisper_url).rstrip("/"),  # Remove trailing slash
-        swisper_api_key=hashed_key.decode("utf-8"),
         description=data.description,
         meta=data.meta,
     )
@@ -137,6 +141,31 @@ async def create_project(
     session.add(project)
     await session.commit()
     await session.refresh(project)
+    
+    # Create 3 environments (batched for performance - single commit)
+    environments = []
+    for env_type, env_data in [
+        ("dev", data.dev_environment),
+        ("staging", data.staging_environment),
+        ("production", data.production_environment)
+    ]:
+        # Hash API key before storage
+        hashed_key = bcrypt.hashpw(
+            env_data.swisper_api_key.encode("utf-8"),
+            bcrypt.gensalt()
+        )
+        
+        environment = ProjectEnvironment(
+            project_id=project.id,
+            env_type=env_type,
+            swisper_url=str(env_data.swisper_url).rstrip("/"),
+            api_key=hashed_key.decode("utf-8")
+        )
+        environments.append(environment)
+        session.add(environment)
+    
+    # Single commit for all 3 environments (performance optimization)
+    await session.commit()
     
     return project
 

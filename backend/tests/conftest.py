@@ -146,6 +146,35 @@ def invalid_api_headers() -> dict[str, str]:
     return {"X-API-Key": "invalid-key-12345"}
 
 
+@pytest.fixture
+def test_project_payload() -> dict:
+    """
+    Helper fixture: Standard project creation payload with 3 environments.
+    
+    Use this to create test projects in a consistent way.
+    Points to mock SAP for testing.
+    
+    Note: Uses backend:8000 (Docker internal network) for backend tests.
+    For browser/frontend, environments can be manually updated to localhost:8001.
+    """
+    return {
+        "name": "Test Project",
+        "description": "Test project description",
+        "dev_environment": {
+            "swisper_url": "http://backend:8000/api/v1/mock-swisper",
+            "swisper_api_key": "mock_dev_key_12345"
+        },
+        "staging_environment": {
+            "swisper_url": "http://backend:8000/api/v1/mock-swisper",
+            "swisper_api_key": "mock_staging_key_12345"
+        },
+        "production_environment": {
+            "swisper_url": "http://backend:8000/api/v1/mock-swisper",
+            "swisper_api_key": "mock_prod_key_12345"
+        }
+    }
+
+
 @pytest.fixture(scope="session", autouse=True)
 async def cleanup_test_data():
     """

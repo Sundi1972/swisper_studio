@@ -1,8 +1,11 @@
 """
-Project model - Represents a connection to a Swisper deployment
+Project model - Represents a customer project with multiple environments
 
 Based on Langfuse Project model (simplified for MVP).
 Reference: langfuse/packages/shared/prisma/schema.prisma:130-186
+
+NOTE: swisper_url and api_key moved to ProjectEnvironment model
+Each project now has 3 environments: dev, staging, production
 """
 
 import uuid
@@ -14,14 +17,13 @@ from sqlmodel import Field, SQLModel
 
 class Project(SQLModel, table=True):
     """
-    Represents a connection to one Swisper deployment.
+    Represents a customer project with multiple environments.
     
-    One SwisperStudio instance can manage multiple Swisper deployments
-    (production, staging, development environments).
+    Each project has 3 environments (dev, staging, production).
+    Connection details (swisper_url, api_key) are stored in ProjectEnvironment.
     
     Based on Langfuse Project model with simplifications:
     - No Organization (not multi-tenant for MVP)
-    - Added swisper_url and swisper_api_key (our specific needs)
     - Kept soft delete pattern (deleted_at)
     - Kept metadata JSON field for extensibility
     """
@@ -40,18 +42,7 @@ class Project(SQLModel, table=True):
         ...,
         min_length=1,
         max_length=255,
-        description="Human-readable project name (e.g., 'Production Swisper')"
-    )
-    
-    swisper_url: str = Field(
-        ...,
-        max_length=500,
-        description="Swisper instance URL (e.g., 'https://swisper.company.com')"
-    )
-    
-    swisper_api_key: str = Field(
-        ...,
-        description="Hashed API key for authenticating with Swisper instance"
+        description="Human-readable project name (e.g., 'Customer A')"
     )
     
     # Optional fields

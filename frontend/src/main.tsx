@@ -7,6 +7,7 @@ import { ThemeProvider } from '@mui/material/styles';
 
 import { App } from './app';
 import { theme } from './theme';
+import { EnvironmentProvider } from './contexts/environment-context';
 
 // Create React Query client
 const queryClient = new QueryClient({
@@ -23,7 +24,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <App />
+        <EnvironmentProvider>
+          <App />
+        </EnvironmentProvider>
         <ReactQueryDevtools initialIsOpen={false} />
       </ThemeProvider>
     </QueryClientProvider>
