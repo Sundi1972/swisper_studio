@@ -9,6 +9,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import close_db_connection, create_db_and_tables
 from app.api.routes import (
+    auth,
+    users,
     traces,
     observations,
     projects,
@@ -53,6 +55,8 @@ app.add_middleware(
 )
 
 # Include routers
+app.include_router(auth.router, prefix=settings.API_V1_PREFIX)  # Auth (no tags, already defined in router)
+app.include_router(users.router, prefix=settings.API_V1_PREFIX)  # User management (tags in router)
 app.include_router(projects.router, prefix=settings.API_V1_PREFIX, tags=["projects"])
 app.include_router(environments.router, prefix=settings.API_V1_PREFIX, tags=["environments"])
 app.include_router(config_versions.router, prefix=settings.API_V1_PREFIX, tags=["config-versions"])

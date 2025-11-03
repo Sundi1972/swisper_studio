@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, HttpUrl
 from sqlalchemy import select
 
-from app.api.deps import APIKey, DBSession
+from app.api.deps import APIKey, DBSession, Auth
 from app.models.project_environment import ProjectEnvironment
 
 router = APIRouter()
@@ -40,7 +40,7 @@ class EnvironmentResponse(BaseModel):
 async def list_environments(
     project_id: str,
     session: DBSession,
-    api_key: APIKey
+    auth: Auth  # Accept JWT or API key
 ) -> list[EnvironmentResponse]:
     """
     List all environments for a project.
@@ -66,7 +66,7 @@ async def update_environment(
     environment_id: str,
     data: EnvironmentCreate,
     session: DBSession,
-    api_key: APIKey
+    auth: Auth  # Accept JWT or API key
 ) -> EnvironmentResponse:
     """
     Update environment connection details.

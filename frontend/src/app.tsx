@@ -8,6 +8,7 @@ import { TraceDetailPage } from './features/traces/components/trace-detail-page'
 import { ConfigPage } from './features/config/components/config-page';
 import { SystemArchitectureView } from './features/swisper-builder';
 import { ProtectedRoute } from './features/auth/components/protected-route';
+import { UserManagementPage } from './features/admin/components/user-management-page';
 
 export function App() {
   return (
@@ -21,6 +22,16 @@ export function App() {
           element={
             <ProtectedRoute>
               <ProjectListPage />
+            </ProtectedRoute>
+          }
+        />
+        
+        {/* Admin: User Management */}
+        <Route
+          path="/admin/users"
+          element={
+            <ProtectedRoute>
+              <UserManagementPage />
             </ProtectedRoute>
           }
         />

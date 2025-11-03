@@ -403,60 +403,96 @@ async def intent_node(state):
 
 ---
 
-### **Phase 2.5: "Enhancements" - Polish & SDK** (2-3 weeks) - OPTIONAL
+### **Phase 2.5: "State Visualization" - UX Enhancement** ✅ COMPLETE (1 day)
 
-**Business Value:** Enhanced UX and SDK automation for better developer experience
+**Completed:** November 3, 2025  
+**Duration:** 1 day (planned 2-3 weeks - 14+ days ahead of schedule!)  
+**Status:** ✅ Complete and tested  
+**Business Value:** Complete observability - developers can see state transitions, prompts, and tool calls
 
-**Status:** Backlog - Implement based on user feedback after Phase 2 MVP
-
-#### Frontend Polish (Week 1)
-- [ ] Separate state viewer panel
-  - Dedicated panel for input/output/diff when observation selected
+#### Frontend (Completed) ✅
+- [x] State diff viewer with green/red background highlighting
   - Side-by-side comparison view
+  - Diff view with color-coded changes
+  - Toggle between views
+  - Expand All button for JSON trees
   - JSON syntax highlighting
-- [ ] Timeline view implementation
-  - Chronological sequence of observations
-  - Gantt chart style visualization
-  - Overlapping execution detection
-- [ ] JSON raw view tab
-  - Full trace JSON export
+- [x] Observation details panel (resizable)
+  - Dedicated panel (60% width, resizable)
+  - Click observation → panel updates
+  - Quick action buttons (jump to sections)
+  - Type-specific sections (GENERATION, TOOL, SPAN)
+- [x] LLM prompt viewer
+  - Markdown rendering (headers, lists, code blocks)
+  - System/user message display
   - Copy to clipboard
-  - Download as file
-- [ ] Search/filter UI controls
-  - Date range picker
-  - Model selector dropdown
-  - Cost range slider
-  - Level checkboxes (DEBUG, DEFAULT, WARNING, ERROR)
-  - Tags input with autocomplete
-- [ ] Tool call detail panel
-  - Arguments viewer (formatted JSON)
-  - Results viewer (formatted JSON)
-  - Duration and error display
-- [ ] Enhanced observation details
-  - Click observation in tree → show full details
-  - Model parameters display
-  - Prompt/response viewer (for GENERATION type)
+- [x] LLM response viewer
+  - JSON tree viewer (expandable/collapsible)
+  - Copy to clipboard
+- [x] Tool call viewer
+  - Function name + arguments
+  - Formatted JSON tree
+  - Copy to clipboard
+- [x] Tool response viewer
+  - Results displayed as JSON tree
+  - Copy to clipboard
+- [x] Model parameters display
+  - Temperature, max_tokens, top_p
+  - Key-value table format
+- [x] STATE CHANGED indicators
+  - Prominent chip on nodes that modify state
+  - State aggregation (parent shows if children changed)
+  - Icons for prompts (💬), tools (🛠️), errors (⚠️)
+- [x] Full viewport layout
+  - Removed Container maxWidth constraint
+  - Resizable panels (drag divider)
+  - Responsive design
+- [ ] Timeline view (deferred - tab present but disabled)
+- [ ] JSON raw view tab (deferred - tab present but disabled)
+- [ ] Search/filter UI controls (backend ready, UI deferred)
 
-#### SDK Enhancements (Week 2)
-- [ ] Auto-state capture
-  - Serialize state before/after each node
-  - Handle Pydantic models, datetime, UUID
+#### SDK Basic (Completed) ✅
+- [x] Auto-state capture
+  - Serialize TypedDict/dict state before/after each node
+  - Handle Pydantic models with model_dump()
   - Store in observation.input/output
+  - **TESTED AND WORKING**
+- [x] Automatic trace creation
+  - Wraps graph.compile().ainvoke() to create trace
+  - Extracts user_id and session_id from state
+  - Sets trace context for observations
+  - **TESTED AND WORKING**
+- [x] Observation nesting
+  - Parent-child relationships with contextvars
+  - Supports nested agents
+  - **TESTED AND WORKING**
+- [x] Error tracking
+  - Catches exceptions in @traced decorator
+  - Sets level=ERROR, status_message=error
+  - Still propagates exception to caller
+  - **IMPLEMENTED**
+- [x] Test script and documentation
+  - test_sdk_locally.py for isolated testing
+  - Integration guide for Swisper
+  - Troubleshooting guide
+  - **COMPLETE**
+
+#### SDK Enhancements (Backlog - Phase 5.2)
 - [ ] LLM wrapper
-  - Wrap LangChain ChatOpenAI, ChatAnthropic
-  - Auto-capture prompts, responses, tokens
-  - Create GENERATION observation automatically
-  - Handle streaming responses
+  - Intercept llm_adapter.get_structured_output() calls
+  - Extract prompts, messages, model, parameters
+  - Count tokens from response
+  - Set observation type = GENERATION
+  - **Duration:** 2 days
 - [ ] Tool wrapper
-  - Wrap LangChain tools
-  - Auto-capture tool name, arguments, results
-  - Create TOOL observation automatically
-  - Track duration
-- [ ] Error tracking
-  - Catch exceptions in @traced decorator
-  - Set level=ERROR, status_message=error
-  - Include stack trace in metadata
-  - Still propagate exception to caller
+  - Detect tool executions
+  - Extract tool arguments and responses
+  - Set observation type = TOOL
+  - **Duration:** 1 day
+- [ ] Observation type auto-detection
+  - Detect GENERATION, TOOL, AGENT types
+  - Default to SPAN
+  - **Duration:** 1 day
 
 #### Additional Enhancements (Week 3)
 - [ ] Cost budget alerts
@@ -732,6 +768,138 @@ async def intent_node(state):
 - ✅ 88/88 backend tests passing
 - ✅ Frontend builds successfully
 - ✅ Browser tested - all features working
+
+---
+
+### **Phase 5.1: SDK Basic Integration** (Week 1) - IN PROGRESS
+
+**Status:** SDK ready, awaiting Swisper integration  
+**Business Value:** Real Swisper traces in SwisperStudio
+
+#### SDK Preparation (Completed) ✅
+- [x] Fixed trace creation bug (graph_wrapper.py)
+- [x] Fixed state serialization (decorator.py)
+- [x] Created test script (test_sdk_locally.py)
+- [x] End-to-end testing (PASSED)
+- [x] Browser verification (state diff working)
+- [x] Integration guide created
+- [x] Troubleshooting guide created
+- [x] Gap analysis documented
+
+#### Swisper Integration (Next)
+- [ ] Install SDK in Swisper backend
+- [ ] Initialize tracing in Swisper main.py
+- [ ] Wrap global_supervisor graph
+- [ ] Send test request
+- [ ] Verify trace appears in SwisperStudio
+- [ ] Test with various message types
+- [ ] Document findings
+- [ ] Decide on SDK enhancements vs user auth priority
+
+**Duration:** 20-30 mins integration + 2-3 hours testing  
+**Success Criteria:**
+- ✅ Real Swisper request creates trace
+- ✅ All nodes visible (intent, memory, planner, agents, ui)
+- ✅ State transitions captured
+- ✅ State diff shows changes
+- ✅ Can debug execution flow
+
+---
+
+### **Phase 5.3: User Authentication & Management** (Weeks 2-3) - HIGH PRIORITY 🔥
+
+**Status:** Not started - CRITICAL for production  
+**Business Value:** Secure multi-user platform, production-ready
+
+**Problem:** Current system uses single API key - not secure or scalable
+
+**Solution:** Implement proper user authentication with JWT
+
+#### Backend (4-5 days)
+- [ ] Create User model
+  - email (unique, indexed)
+  - password_hash (bcrypt, 12 rounds)
+  - name, role (admin/developer/viewer)
+  - created_at, updated_at, last_login
+- [ ] Authentication endpoints
+  - POST /api/v1/auth/register (email, password, name)
+  - POST /api/v1/auth/login (email, password) → JWT token
+  - POST /api/v1/auth/logout (invalidate token)
+  - GET /api/v1/auth/me (current user info)
+- [ ] JWT middleware
+  - Verify token on all protected routes
+  - Extract user_id from token
+  - Add to request context
+- [ ] RBAC system
+  - Role enum: ADMIN, DEVELOPER, QA, VIEWER
+  - Permission checks per environment
+  - Developers: edit dev/staging, read production
+  - QA: edit staging, read dev/production
+  - Admin: edit all environments
+- [ ] Add user_id to existing models
+  - Projects.owner_id (foreign key to User)
+  - Traces.user_id (already exists, link to User)
+  - ConfigVersion.created_by_user_id
+- [ ] Migration
+  - Create users table
+  - Add user_id foreign keys
+  - Create default admin user
+  - Backfill existing data (optional)
+- [ ] Tests (15-20 tests)
+  - Registration, login, logout
+  - JWT verification
+  - Permission checks
+  - RBAC enforcement
+
+#### Frontend (3-4 days)
+- [ ] Login page
+  - Email + password form
+  - Remember me checkbox
+  - Error handling
+  - Loading states
+- [ ] Registration page (optional for MVP)
+  - Email, password, name
+  - Password strength indicator
+  - Email verification (optional)
+- [ ] Auth context
+  - Store JWT in localStorage
+  - Provide user info to components
+  - Auto-refresh on token expiry (optional)
+- [ ] Protected routes
+  - Redirect to login if not authenticated
+  - ProtectedRoute wrapper component
+  - Public routes: /login, /register
+  - Protected routes: everything else
+- [ ] User profile dropdown
+  - Show user name in header
+  - Dropdown: Profile, Settings, Logout
+  - User avatar (optional)
+- [ ] Logout functionality
+  - Clear JWT from localStorage
+  - Redirect to login
+  - Clear auth context
+
+#### Security
+- [ ] Password hashing (bcrypt, cost factor 12)
+- [ ] JWT with expiration (24 hours)
+- [ ] Refresh tokens (optional)
+- [ ] HTTPS enforcement (production)
+- [ ] Rate limiting on auth endpoints (prevent brute force)
+- [ ] CSRF protection
+- [ ] XSS protection (Content-Security-Policy)
+- [ ] SQL injection protection (SQLModel handles this)
+
+**Duration:** 7-10 days  
+**Complexity:** High (security-critical)  
+**Priority:** **CRITICAL** - Blocks production deployment
+
+**Success Criteria:**
+- ✅ Users can register and login
+- ✅ JWT authentication working
+- ✅ Protected routes redirect to login
+- ✅ RBAC enforces permissions per environment
+- ✅ Logout clears session
+- ✅ Secure (password hashing, JWT expiration)
 
 ---
 

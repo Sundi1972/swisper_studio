@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useProject } from '../hooks/use-project';
 import { EnvironmentSelector } from '../../../components/environment-selector';
 import { useEnvironments } from '../../config/hooks/use-environments';
+import { UserMenu } from '../../auth/components/user-menu';
 
 interface ProjectHeaderProps {
   projectId: string;
@@ -57,10 +58,10 @@ export function ProjectHeader({ projectId }: ProjectHeaderProps) {
             <Link
               underline="hover"
               color="inherit"
-              sx={{ cursor: 'pointer' }}
+              sx={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 0.5 }}
               onClick={() => navigate('/projects')}
             >
-              Projects
+              <Typography variant="body2" component="span" fontWeight="bold">SwisperStudio</Typography>
             </Link>
             <Link
               underline="hover"
@@ -94,6 +95,11 @@ export function ProjectHeader({ projectId }: ProjectHeaderProps) {
         
         {/* Environment Selector */}
         <EnvironmentSelector />
+        
+        {/* User Menu */}
+        <Box sx={{ ml: 2 }}>
+          <UserMenu />
+        </Box>
       </Toolbar>
     </AppBar>
   );

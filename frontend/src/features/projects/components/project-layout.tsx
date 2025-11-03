@@ -1,4 +1,4 @@
-import { Box, Container } from '@mui/material';
+import { Box } from '@mui/material';
 import { Outlet, useParams } from 'react-router-dom';
 import { ProjectSidebar } from './project-sidebar';
 import { ProjectHeader } from './project-header';
@@ -34,9 +34,9 @@ export function ProjectLayout() {
         <ProjectHeader projectId={projectId} />
         
         {/* Page content from nested routes */}
-        <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
+        <Box sx={{ px: 3, py: 2 }}>
           <Outlet />
-        </Container>
+        </Box>
       </Box>
     </Box>
   );

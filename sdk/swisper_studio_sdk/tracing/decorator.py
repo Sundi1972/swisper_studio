@@ -55,15 +55,22 @@ def traced(
                 else:
                     return func(*args, **kwargs)
 
-            # Capture input (if LangGraph state)
+            # Capture input (LangGraph state is a dict or TypedDict)
             input_data = None
-            if args and hasattr(args[0], '__dict__'):
+            if args:
                 try:
-                    # Try to serialize state
-                    if hasattr(args[0], 'dict'):
-                        input_data = args[0].dict()
-                    elif hasattr(args[0], '__dict__'):
-                        input_data = vars(args[0])
+                    state = args[0]
+                    # TypedDict/dict (most common for LangGraph)
+                    if isinstance(state, dict):
+                        input_data = dict(state)  # Copy the dict
+                    # Pydantic models
+                    elif hasattr(state, 'model_dump'):
+                        input_data = state.model_dump()
+                    elif hasattr(state, 'dict'):
+                        input_data = state.dict()
+                    # Other objects with __dict__
+                    elif hasattr(state, '__dict__'):
+                        input_data = vars(state)
                 except Exception:
                     # Skip if serialization fails
                     pass
@@ -97,16 +104,22 @@ def traced(
                 else:
                     result = func(*args, **kwargs)
 
-                # Capture output
+                # Capture output (LangGraph returns dict or TypedDict)
                 output_data = None
-                if hasattr(result, '__dict__'):
-                    try:
-                        if hasattr(result, 'dict'):
-                            output_data = result.dict()
-                        elif hasattr(result, '__dict__'):
-                            output_data = vars(result)
-                    except Exception:
-                        pass
+                try:
+                    # TypedDict/dict (most common for LangGraph)
+                    if isinstance(result, dict):
+                        output_data = dict(result)  # Copy the dict
+                    # Pydantic models
+                    elif hasattr(result, 'model_dump'):
+                        output_data = result.model_dump()
+                    elif hasattr(result, 'dict'):
+                        output_data = result.dict()
+                    # Other objects
+                    elif hasattr(result, '__dict__'):
+                        output_data = vars(result)
+                except Exception:
+                    pass
 
                 # End observation (success)
                 try:

@@ -30,7 +30,7 @@ async def test_create_trace(session: AsyncSession) -> None:
     trace = Trace(
         id=trace_id,
         name="test_trace",
-        user_id="user_123",
+        user_id=None,  # No FK constraint violation (user_id is nullable)
         session_id="session_456",
         project_id=project.id,  # Use real project ID
         meta={"key": "value"},  # Field is 'meta', not 'metadata'
@@ -46,7 +46,7 @@ async def test_create_trace(session: AsyncSession) -> None:
     
     assert trace.id == trace_id
     assert trace.name == "test_trace"
-    assert trace.user_id == "user_123"
+    assert trace.user_id is None
     assert trace.project_id == project.id
     assert trace.meta == {"key": "value"}  # Field is 'meta'
     assert trace.tags == ["test", "demo"]

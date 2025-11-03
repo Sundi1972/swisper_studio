@@ -15,8 +15,11 @@ Usage:
 
 from typing import Type, TypeVar
 from langgraph.graph import StateGraph
+import functools
 
 from .decorator import traced
+from .client import get_studio_client
+from .context import set_current_trace
 
 TState = TypeVar('TState')
 
@@ -68,6 +71,56 @@ def create_traced_graph(
 
         # Replace add_node with auto-tracing version
         graph.add_node = traced_add_node
+    
+    # Wrap compile to create trace on invocation
+    original_compile = graph.compile
+    
+    def traced_compile(*args, **kwargs):
+        """Wrap compile to intercept ainvoke and create traces"""
+        compiled_graph = original_compile(*args, **kwargs)
+        original_ainvoke = compiled_graph.ainvoke
+        
+        @functools.wraps(original_ainvoke)
+        async def traced_ainvoke(input_state, config=None, **invoke_kwargs):
+            """Create trace before running graph"""
+            client = get_studio_client()
+            
+            if not client:
+                # Tracing not initialized, run normally
+                return await original_ainvoke(input_state, config, **invoke_kwargs)
+            
+            # Create trace
+            try:
+                user_id = input_state.get("user_id") if isinstance(input_state, dict) else None
+                session_id = input_state.get("chat_id") or input_state.get("session_id") if isinstance(input_state, dict) else None
+                
+                trace_id = await client.create_trace(
+                    name=trace_name,
+                    user_id=user_id,
+                    session_id=session_id,
+                )
+                
+                # Set trace context for observations
+                set_current_trace(trace_id)
+            except Exception as e:
+                # If trace creation fails, continue without tracing
+                print(f"⚠️ Failed to create trace: {e}")
+                return await original_ainvoke(input_state, config, **invoke_kwargs)
+            
+            # Run graph with trace context
+            try:
+                result = await original_ainvoke(input_state, config, **invoke_kwargs)
+                return result
+            finally:
+                # Clear trace context
+                set_current_trace(None)
+        
+        # Replace ainvoke with traced version
+        compiled_graph.ainvoke = traced_ainvoke
+        return compiled_graph
+    
+    # Replace compile with our wrapper
+    graph.compile = traced_compile
 
     return graph
 

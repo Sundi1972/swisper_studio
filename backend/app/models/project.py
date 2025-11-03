@@ -52,6 +52,18 @@ class Project(SQLModel, table=True):
         description="Optional project description"
     )
     
+    github_repo_url: str | None = Field(
+        None,
+        max_length=500,
+        description="GitHub repository URL for config deployment (e.g., https://github.com/org/swisper)"
+    )
+    
+    github_token: str | None = Field(
+        None,
+        max_length=500,
+        description="GitHub Personal Access Token for pushing commits (scope: repo) - SENSITIVE!"
+    )
+    
     meta: dict[str, Any] | None = Field(
         default=None,
         sa_column=Column(JSON),

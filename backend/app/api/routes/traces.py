@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select, func
 
-from app.api.deps import APIKey, DBSession
+from app.api.deps import APIKey, DBSession, Auth
 from app.models import Trace, Project, Observation
 from app.api.services.observation_tree_service import build_observation_tree, ObservationTreeNode
 from app.api.services.graph_builder_service import graph_builder_service
@@ -50,7 +50,7 @@ class TraceResponse(BaseModel):
 async def create_trace(
     trace_data: TraceCreate,
     session: DBSession,
-    api_key: APIKey,
+    auth: Auth,  # Accept JWT or API key
 ) -> Trace:
     """
     Create a new trace.
@@ -105,7 +105,7 @@ async def list_traces(
     tags: list[str] | None = Query(None, description="Filter by tags (any match)"),
     # Dependencies
     session: DBSession = None,
-    api_key: APIKey = None,
+    auth: Auth = None,  # Accept JWT or API key
 ) -> dict[str, Any]:
     """
     List traces for a project with pagination and filtering (Phase 2 enhanced).
@@ -170,7 +170,7 @@ async def list_traces(
 async def get_trace(
     trace_id: str,
     session: DBSession,
-    api_key: APIKey,
+    auth: Auth,  # Accept JWT or API key
 ) -> Trace:
     """Get a trace by ID"""
     stmt = select(Trace).where(Trace.id == trace_id)
@@ -190,7 +190,7 @@ async def get_trace(
 async def get_trace_tree(
     trace_id: str,
     session: DBSession,
-    api_key: APIKey,
+    auth: Auth,  # Accept JWT or API key
 ) -> list[ObservationTreeNode]:
     """
     Get observation tree for a trace.
@@ -227,7 +227,7 @@ async def get_trace_tree(
 async def get_trace_graph(
     trace_id: str,
     session: DBSession,
-    api_key: APIKey
+    auth: Auth  # Accept JWT or API key
 ) -> GraphData:
     """
     Get graph structure for trace visualization.

@@ -1,6 +1,6 @@
 /**
  * Login page component
- * Following Swisper patterns: MUI components, styled components, function declarations
+ * Updated for JWT authentication with email + password
  */
 
 import { useState } from 'react';
@@ -27,12 +27,13 @@ const Container = styled(Box)(({ theme }) => ({
   justifyContent: 'center',
   minHeight: '100vh',
   padding: theme.spacing(3),
-  backgroundColor: theme.palette.background.default, // Use theme background
+  backgroundColor: theme.palette.background.default,
 }));
 
 export function LoginPage() {
-  const [apiKey, setApiKey] = useState('');
-  const [showApiKey, setShowApiKey] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
   const theme = useTheme();
   const { mutateAsync: login, isPending, isError, error } = useLoginMutation();
@@ -41,7 +42,7 @@ export function LoginPage() {
     e.preventDefault();
 
     try {
-      await login({ apiKey });
+      await login({ email, password });
       navigate('/projects');
     } catch (err) {
       // Error handled by mutation hook
@@ -78,23 +79,36 @@ export function LoginPage() {
 
         <TextField
           fullWidth
-          type={showApiKey ? 'text' : 'password'}
-          label="SwisperStudio API Key"
-          value={apiKey}
-          onChange={(e) => setApiKey(e.target.value)}
+          type="email"
+          label="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
           required
-          helperText="Enter your SwisperStudio API key (API_KEY from docker-compose.yml)"
+          autoComplete="email"
+          autoFocus
+          sx={{ mb: 2 }}
+          disabled={isPending}
+        />
+
+        <TextField
+          fullWidth
+          type={showPassword ? 'text' : 'password'}
+          label="Password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          autoComplete="current-password"
           sx={{ mb: 2 }}
           disabled={isPending}
           InputProps={{
             endAdornment: (
               <InputAdornment position="end">
                 <IconButton
-                  onClick={() => setShowApiKey(!showApiKey)}
+                  onClick={() => setShowPassword(!showPassword)}
                   edge="end"
                   size="small"
                 >
-                  {showApiKey ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                  {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
                 </IconButton>
               </InputAdornment>
             ),
@@ -105,12 +119,27 @@ export function LoginPage() {
           fullWidth
           type="submit"
           variant="contained"
-          disabled={isPending || !apiKey}
+          disabled={isPending || !email || !password}
+          sx={{ mb: 2 }}
         >
           {isPending ? 'Logging in...' : 'Login'}
         </Button>
+
+        {/* Test credentials help */}
+        <Alert severity="info" sx={{ mt: 2 }}>
+          <Typography variant="caption" display="block">
+            <strong>Default Admin:</strong>
+          </Typography>
+          <Typography variant="caption" display="block">
+            Email: admin@swisperstudio.com
+          </Typography>
+          <Typography variant="caption">
+            Password: admin123
+          </Typography>
+        </Alert>
       </Box>
     </Container>
   );
 }
+
 

@@ -16,7 +16,7 @@ from fastapi import APIRouter, HTTPException, Depends, status, Query
 from pydantic import BaseModel, Field, HttpUrl, field_validator
 from sqlalchemy import select, func
 
-from app.api.deps import APIKey, DBSession
+from app.api.deps import APIKey, DBSession, Auth
 from app.models import Project
 from app.models.project_environment import ProjectEnvironment
 
@@ -39,6 +39,8 @@ class ProjectCreate(BaseModel):
     
     name: str = Field(..., min_length=1, max_length=255, description="Project name")
     description: str | None = Field(None, max_length=1000, description="Project description")
+    github_repo_url: str | None = Field(None, max_length=500, description="GitHub repository URL")
+    github_token: str | None = Field(None, max_length=500, description="GitHub Personal Access Token (scope: repo) - SENSITIVE!")
     meta: dict[str, Any] | None = Field(None, description="Additional metadata")
     
     # Three environments (dev, staging, production)
@@ -62,6 +64,8 @@ class ProjectUpdate(BaseModel):
     
     name: str | None = Field(None, min_length=1, max_length=255)
     description: str | None = Field(None, max_length=1000)
+    github_repo_url: str | None = Field(None, max_length=500)
+    github_token: str | None = Field(None, max_length=500, description="GitHub PAT - SENSITIVE!")
     meta: dict[str, Any] | None = None
     
     model_config = {"extra": "forbid"}  # Strict validation
@@ -81,6 +85,8 @@ class ProjectResponse(BaseModel):
     id: str
     name: str
     description: str | None
+    github_repo_url: str | None
+    # NOTE: github_token is NEVER returned (security - like API keys)
     meta: dict[str, Any] | None
     created_at: datetime
     updated_at: datetime
@@ -123,7 +129,7 @@ class ProjectListResponse(BaseModel):
 async def create_project(
     data: ProjectCreate,
     session: DBSession,
-    api_key: APIKey,
+    auth: Auth,  # Accept JWT or API key
 ) -> Project:
     """
     Create a new project with 3 environments (dev, staging, production).
@@ -135,6 +141,8 @@ async def create_project(
     project = Project(
         name=data.name,
         description=data.description,
+        github_repo_url=data.github_repo_url,
+        github_token=data.github_token,  # Stored as-is (TODO: encrypt in production)
         meta=data.meta,
     )
     
@@ -173,7 +181,7 @@ async def create_project(
 @router.get("/projects", response_model=ProjectListResponse)
 async def list_projects(
     session: DBSession,
-    api_key: APIKey,
+    auth: Auth,  # Accept JWT or API key
     page: int = Query(default=1, ge=1, description="Page number (starts at 1)"),
     limit: int = Query(default=50, ge=1, le=1000, description="Items per page"),
 ) -> dict[str, Any]:
@@ -219,7 +227,7 @@ async def list_projects(
 async def get_project(
     project_id: str,
     session: DBSession,
-    api_key: APIKey,
+    auth: Auth,  # Accept JWT or API key
 ) -> Project:
     """Get a project by ID (excludes soft-deleted)"""
     stmt = select(Project).where(
@@ -243,7 +251,7 @@ async def update_project(
     project_id: str,
     data: ProjectUpdate,
     session: DBSession,
-    api_key: APIKey,
+    auth: Auth,  # Accept JWT or API key
 ) -> Project:
     """
     Update a project.
@@ -281,7 +289,7 @@ async def update_project(
 async def delete_project(
     project_id: str,
     session: DBSession,
-    api_key: APIKey,
+    auth: Auth,  # Accept JWT or API key
 ) -> None:
     """
     Soft delete a project (Langfuse pattern).

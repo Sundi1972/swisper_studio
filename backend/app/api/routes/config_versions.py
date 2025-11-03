@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from sqlalchemy import select, and_, desc
 import httpx
 
-from app.api.deps import APIKey, DBSession
+from app.api.deps import APIKey, DBSession, Auth
 from app.models.config_version import ConfigVersion, ConfigDeployment
 from app.models.project_environment import ProjectEnvironment
 
@@ -69,7 +69,7 @@ class DeploymentResponse(BaseModel):
 async def list_versions(
     project_id: str,
     session: DBSession,
-    api_key: APIKey,
+    auth: Auth,  # Accept JWT or API key
     table_name: str | None = Query(None, description="Filter by table name"),
     record_id: str | None = Query(None, description="Filter by record ID")
 ) -> list[ConfigVersionResponse]:
@@ -101,7 +101,7 @@ async def create_version(
     project_id: str,
     data: ConfigVersionCreate,
     session: DBSession,
-    api_key: APIKey
+    auth: Auth  # Accept JWT or API key
 ) -> ConfigVersionResponse:
     """
     Save a new config version.
@@ -148,7 +148,7 @@ async def get_version(
     project_id: str,
     version_id: str,
     session: DBSession,
-    api_key: APIKey
+    auth: Auth  # Accept JWT or API key
 ) -> ConfigVersionResponse:
     """Get a single config version by ID"""
     version = await session.get(ConfigVersion, version_id)
@@ -164,7 +164,7 @@ async def deploy_version(
     environment_id: str,
     data: DeployRequest,
     session: DBSession,
-    api_key: APIKey
+    auth: Auth  # Accept JWT or API key
 ):
     """
     Deploy a config version to an environment.
@@ -246,7 +246,7 @@ async def get_current_config(
     project_id: str,
     environment_id: str,
     session: DBSession,
-    api_key: APIKey,
+    auth: Auth,  # Accept JWT or API key
     table_name: str = Query(..., description="Config table name"),
     record_id: str = Query(..., description="Config record ID")
 ):

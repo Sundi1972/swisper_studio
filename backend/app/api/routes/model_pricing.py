@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy import select
 
-from app.api.deps import APIKey, DBSession
+from app.api.deps import APIKey, DBSession, Auth
 from app.models import ModelPricing
 
 
@@ -29,7 +29,7 @@ class ModelPricingResponse(BaseModel):
 async def get_project_model_pricing(
     project_id: str,
     session: DBSession,
-    api_key: APIKey,
+    auth: Auth,  # Accept JWT or API key
 ) -> list[ModelPricing]:
     """
     Get all model pricing for a project.
@@ -65,7 +65,7 @@ async def get_project_model_pricing(
 @router.get("/model-pricing/defaults", response_model=list[ModelPricingResponse])
 async def get_default_model_pricing(
     session: DBSession,
-    api_key: APIKey,
+    auth: Auth,  # Accept JWT or API key
 ) -> list[ModelPricing]:
     """
     Get default model pricing (applies to all projects without custom pricing).

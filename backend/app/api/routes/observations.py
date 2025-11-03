@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
-from app.api.deps import APIKey, DBSession
+from app.api.deps import APIKey, DBSession, Auth
 from app.models import Observation, ObservationType, Trace
 from app.api.services.cost_calculation_service import calculate_llm_cost, extract_provider_from_model
 
@@ -108,7 +108,7 @@ class ObservationResponse(BaseModel):
 async def create_observation(
     observation_data: ObservationCreate,
     session: DBSession,
-    api_key: APIKey,
+    auth: Auth,  # Accept JWT or API key
 ) -> Observation:
     """
     Create a new observation with automatic cost calculation.
@@ -167,7 +167,7 @@ async def update_observation(
     observation_id: str,
     update_data: ObservationUpdate,
     session: DBSession,
-    api_key: APIKey,
+    auth: Auth,  # Accept JWT or API key
 ) -> Observation:
     """
     Update an observation with automatic cost recalculation.
@@ -228,7 +228,7 @@ async def update_observation(
 async def get_observation(
     observation_id: str,
     session: DBSession,
-    api_key: APIKey,
+    auth: Auth,  # Accept JWT or API key
 ) -> Observation:
     """Get an observation by ID"""
     stmt = select(Observation).where(Observation.id == observation_id)
