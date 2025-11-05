@@ -24,7 +24,7 @@ from swisper_studio_sdk.tracing.graph_wrapper import create_traced_graph
 from swisper_studio_sdk.tracing.client import initialize_tracing
 from swisper_studio_sdk.wrappers import wrap_llm_adapter, wrap_tools
 
-__version__ = "0.2.1"  # Phase 5.1: Critical bug fixes (deep copy + parent observation)
+__version__ = "0.3.0"  # Phase 5.1: Production-ready (deep copy + parent obs + fire-and-forget)
 
 __all__ = [
     "traced",

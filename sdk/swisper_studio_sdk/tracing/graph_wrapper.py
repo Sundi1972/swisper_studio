@@ -17,6 +17,7 @@ from typing import Type, TypeVar
 from langgraph.graph import StateGraph
 import copy
 import functools
+import uuid
 
 from .decorator import traced
 from .client import get_studio_client
@@ -105,16 +106,19 @@ def create_traced_graph(
                 set_current_trace(trace_id)
                 
                 # FIX: Create parent observation for the graph (Issue #1)
-                # This makes all child nodes nest under "global_supervisor" parent
-                parent_obs_id = await client.create_observation(
+                # FIRE-AND-FORGET: Generate ID locally, create in background
+                parent_obs_id = str(uuid.uuid4())
+                
+                client.create_observation_background(
                     trace_id=trace_id,
                     name=trace_name,  # "global_supervisor"
                     type="AGENT",  # Graph is an agent
+                    observation_id=parent_obs_id,  # Pre-generated
                     parent_observation_id=None,  # Top level
                     input=copy.deepcopy(input_state) if isinstance(input_state, dict) else None,
                 )
                 
-                # Set as current observation so child nodes nest under it
+                # Set as current observation immediately (don't wait)
                 parent_token = set_current_observation(parent_obs_id)
                 
             except Exception as e:
@@ -126,16 +130,12 @@ def create_traced_graph(
             try:
                 result = await original_ainvoke(input_state, config, **invoke_kwargs)
                 
-                # FIX: End parent observation with result
-                try:
-                    await client.end_observation(
-                        observation_id=parent_obs_id,
-                        output=copy.deepcopy(result) if isinstance(result, dict) else None,
-                        level="DEFAULT",
-                    )
-                except Exception:
-                    # Ignore if ending parent observation fails
-                    pass
+                # FIRE-AND-FORGET: End parent observation in background
+                client.end_observation_background(
+                    observation_id=parent_obs_id,
+                    output=copy.deepcopy(result) if isinstance(result, dict) else None,
+                    level="DEFAULT",
+                )
                 
                 return result
             finally:

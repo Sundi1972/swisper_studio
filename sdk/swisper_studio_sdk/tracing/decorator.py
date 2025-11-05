@@ -9,6 +9,7 @@ import asyncio
 import copy
 import functools
 import time
+import uuid
 from typing import TypeVar, Callable
 
 from .client import get_studio_client
@@ -118,23 +119,20 @@ def traced(
             # Get parent observation (for nesting)
             parent_obs = get_current_observation()
 
-            # Create observation
-            try:
-                obs_id = await client.create_observation(
-                    trace_id=trace_id,
-                    name=obs_name,
-                    type=observation_type,
-                    parent_observation_id=parent_obs,
-                    input=input_data,
-                )
-            except Exception:
-                # If observation creation fails, continue without tracing
-                if asyncio.iscoroutinefunction(func):
-                    return await func(*args, **kwargs)
-                else:
-                    return func(*args, **kwargs)
+            # FIRE-AND-FORGET: Generate observation ID locally (no waiting)
+            obs_id = str(uuid.uuid4())
+            
+            # Create observation in background (non-blocking)
+            client.create_observation_background(
+                trace_id=trace_id,
+                name=obs_name,
+                type=observation_type,
+                observation_id=obs_id,  # Pre-generated
+                parent_observation_id=parent_obs,
+                input=input_data,
+            )
 
-            # Set as current observation (for nested calls)
+            # Set as current observation immediately (for nested calls)
             token = set_current_observation(obs_id)
 
             try:
@@ -162,30 +160,22 @@ def traced(
                 except Exception:
                     pass
 
-                # End observation (success)
-                try:
-                    await client.end_observation(
-                        observation_id=obs_id,
-                        output=output_data,
-                        level="DEFAULT",
-                    )
-                except Exception:
-                    # Ignore if ending observation fails
-                    pass
+                # FIRE-AND-FORGET: End observation in background (non-blocking)
+                client.end_observation_background(
+                    observation_id=obs_id,
+                    output=output_data,
+                    level="DEFAULT",
+                )
 
                 return result
 
             except Exception as e:
-                # End observation (error)
-                try:
-                    await client.end_observation(
-                        observation_id=obs_id,
-                        level="ERROR",
-                        status_message=str(e),
-                    )
-                except Exception:
-                    # Ignore if ending observation fails
-                    pass
+                # FIRE-AND-FORGET: End observation with error in background
+                client.end_observation_background(
+                    observation_id=obs_id,
+                    level="ERROR",
+                    status_message=str(e),
+                )
                 raise
 
             finally:
