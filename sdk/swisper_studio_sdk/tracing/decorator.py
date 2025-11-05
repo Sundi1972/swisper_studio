@@ -16,6 +16,44 @@ from .context import get_current_trace, get_current_observation, set_current_obs
 T = TypeVar('T')
 
 
+def _detect_observation_type(
+    observation_name: str,
+    has_llm_data: bool,
+    has_tool_data: bool
+) -> str:
+    """
+    Auto-detect observation type based on captured data and naming.
+    
+    Priority order:
+    1. LLM data → GENERATION
+    2. Tool data → TOOL  
+    3. Name contains "agent" → AGENT
+    4. Default → SPAN
+    
+    Args:
+        observation_name: Name of the observation/node
+        has_llm_data: Whether LLM telemetry was captured
+        has_tool_data: Whether tool telemetry was captured
+        
+    Returns:
+        Observation type string (GENERATION, TOOL, AGENT, or SPAN)
+    """
+    # Priority 1: LLM data
+    if has_llm_data:
+        return "GENERATION"
+    
+    # Priority 2: Tool data
+    if has_tool_data:
+        return "TOOL"
+    
+    # Priority 3: Agent naming pattern
+    if "agent" in observation_name.lower():
+        return "AGENT"
+    
+    # Default
+    return "SPAN"
+
+
 def traced(
     name: str | None = None,
     observation_type: str = "SPAN",

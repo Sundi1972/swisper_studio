@@ -316,6 +316,102 @@
           "label": "evaluate results"
         }
       ]
+    },
+    {
+      "name": "gk_catalog_agent",
+      "description": "Retail shopping assistant for DIY projects. Helps users select project types, match materials to catalog products, find items in store, and generate shopping lists with building instructions.",
+      "nodes": [
+        {
+          "id": "availability_check",
+          "label": "Availability Check",
+          "type": "TOOL"
+        },
+        {
+          "id": "project_discovery",
+          "label": "Project Discovery",
+          "type": "GENERATION"
+        },
+        {
+          "id": "product_matcher",
+          "label": "Product Matcher",
+          "type": "GENERATION"
+        },
+        {
+          "id": "store_navigation",
+          "label": "Store Navigation",
+          "type": "SPAN"
+        },
+        {
+          "id": "shopping_list_builder",
+          "label": "Shopping List Builder",
+          "type": "GENERATION"
+        }
+      ],
+      "edges": [
+        {
+          "from": "__start__",
+          "to": "availability_check",
+          "conditional": true,
+          "label": "if simple product query"
+        },
+        {
+          "from": "__start__",
+          "to": "project_discovery",
+          "conditional": true,
+          "label": "if DIY project query"
+        },
+        {
+          "from": "availability_check",
+          "to": "__end__",
+          "conditional": false
+        },
+        {
+          "from": "project_discovery",
+          "to": "project_discovery",
+          "conditional": true,
+          "label": "if HITL waiting (shelf selection)"
+        },
+        {
+          "from": "project_discovery",
+          "to": "product_matcher",
+          "conditional": true,
+          "label": "if tutorial loaded"
+        },
+        {
+          "from": "project_discovery",
+          "to": "__end__",
+          "conditional": true,
+          "label": "if no tutorial"
+        },
+        {
+          "from": "product_matcher",
+          "to": "product_matcher",
+          "conditional": true,
+          "label": "if HITL waiting (adhesive choice)"
+        },
+        {
+          "from": "product_matcher",
+          "to": "store_navigation",
+          "conditional": true,
+          "label": "if products matched"
+        },
+        {
+          "from": "product_matcher",
+          "to": "__end__",
+          "conditional": true,
+          "label": "if no products"
+        },
+        {
+          "from": "store_navigation",
+          "to": "shopping_list_builder",
+          "conditional": false
+        },
+        {
+          "from": "shopping_list_builder",
+          "to": "__end__",
+          "conditional": false
+        }
+      ]
     }
   ]
 }
