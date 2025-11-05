@@ -118,9 +118,7 @@ export function StateDiffViewer({ inputState, outputState }: StateDiffViewerProp
         <Box sx={{ 
           p: 2, 
           bgcolor: 'grey.900',
-          borderRadius: 1,
-          overflow: 'auto',
-          maxHeight: '500px'
+          borderRadius: 1
         }}>
           {!hasChanges ? (
             <Typography variant="body2" color="text.secondary">
@@ -131,7 +129,7 @@ export function StateDiffViewer({ inputState, outputState }: StateDiffViewerProp
               {/* Added fields - GREEN BACKGROUND */}
               {Object.keys(diff.added).map((key) => {
                 const value = diff.added[key];
-                const isPrimitive = typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean';
+                const isPrimitive = typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || value === null || value === undefined;
                 
                 return (
                   <Box key={`added-${key}`} sx={{ 
@@ -145,7 +143,7 @@ export function StateDiffViewer({ inputState, outputState }: StateDiffViewerProp
                     <Box component="span">
                       {key}: {isPrimitive ? (
                         <Box component="span" sx={{ fontFamily: 'monospace' }}>
-                          {typeof value === 'string' ? `"${value}"` : String(value)}
+                          {value === null ? 'null' : value === undefined ? 'undefined' : typeof value === 'string' ? `"${value}"` : String(value)}
                         </Box>
                       ) : (
                         <JsonView value={value} collapsed={expandAll ? false : 1} displayDataTypes={false} enableClipboard={false} style={{ display: 'inline', background: 'transparent' }} />
@@ -158,7 +156,7 @@ export function StateDiffViewer({ inputState, outputState }: StateDiffViewerProp
               {/* Removed fields - RED BACKGROUND */}
               {Object.keys(diff.removed).map((key) => {
                 const value = diff.removed[key];
-                const isPrimitive = typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean';
+                const isPrimitive = typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || value === null || value === undefined;
                 
                 return (
                   <Box key={`removed-${key}`} sx={{ 
@@ -172,7 +170,7 @@ export function StateDiffViewer({ inputState, outputState }: StateDiffViewerProp
                     <Box component="span">
                       {key}: {isPrimitive ? (
                         <Box component="span" sx={{ fontFamily: 'monospace' }}>
-                          {typeof value === 'string' ? `"${value}"` : String(value)}
+                          {value === null ? 'null' : value === undefined ? 'undefined' : typeof value === 'string' ? `"${value}"` : String(value)}
                         </Box>
                       ) : (
                         <JsonView value={value} collapsed={expandAll ? false : 1} displayDataTypes={false} enableClipboard={false} style={{ display: 'inline', background: 'transparent' }} />
@@ -183,44 +181,63 @@ export function StateDiffViewer({ inputState, outputState }: StateDiffViewerProp
               })}
 
               {/* Changed fields - YELLOW BACKGROUND */}
-              {Object.keys(diff.changed).map((key) => (
-                <Box key={`changed-${key}`} sx={{ mb: 1 }}>
-                  <Box sx={{ 
-                    backgroundColor: 'rgba(244, 67, 54, 0.2)', 
-                    p: 1, 
-                    borderRadius: 1, 
-                    mb: 0.5,
-                    '& *': { color: '#ffffff !important' }
-                  }}>
-                    <Box component="span" sx={{ color: '#f44336', fontWeight: 'bold' }}>- </Box>
-                    <Box component="span">
-                      {key}: <JsonView value={diff.changed[key].before} collapsed={expandAll ? false : 1} displayDataTypes={false} enableClipboard={false} style={{ display: 'inline', background: 'transparent' }} />
+              {Object.keys(diff.changed).map((key) => {
+                const beforeValue = diff.changed[key].before;
+                const afterValue = diff.changed[key].after;
+                const beforeIsPrimitive = typeof beforeValue === 'string' || typeof beforeValue === 'number' || typeof beforeValue === 'boolean' || beforeValue === null || beforeValue === undefined;
+                const afterIsPrimitive = typeof afterValue === 'string' || typeof afterValue === 'number' || typeof afterValue === 'boolean' || afterValue === null || afterValue === undefined;
+                
+                return (
+                  <Box key={`changed-${key}`} sx={{ mb: 1 }}>
+                    <Box sx={{ 
+                      backgroundColor: 'rgba(244, 67, 54, 0.2)', 
+                      p: 1, 
+                      borderRadius: 1, 
+                      mb: 0.5,
+                      '& *': { color: '#ffffff !important' }
+                    }}>
+                      <Box component="span" sx={{ color: '#f44336', fontWeight: 'bold' }}>- </Box>
+                      <Box component="span">
+                        {key}: {beforeIsPrimitive ? (
+                          <Box component="span" sx={{ fontFamily: 'monospace' }}>
+                            {beforeValue === null ? 'null' : beforeValue === undefined ? 'undefined' : typeof beforeValue === 'string' ? `"${beforeValue}"` : String(beforeValue)}
+                          </Box>
+                        ) : (
+                          <JsonView value={beforeValue} collapsed={expandAll ? false : 1} displayDataTypes={false} enableClipboard={false} style={{ display: 'inline', background: 'transparent' }} />
+                        )}
+                      </Box>
+                    </Box>
+                    <Box sx={{ 
+                      backgroundColor: 'rgba(76, 175, 80, 0.2)', 
+                      p: 1, 
+                      borderRadius: 1,
+                      '& *': { color: '#ffffff !important' }
+                    }}>
+                      <Box component="span" sx={{ color: '#4caf50', fontWeight: 'bold' }}>+ </Box>
+                      <Box component="span">
+                        {key}: {afterIsPrimitive ? (
+                          <Box component="span" sx={{ fontFamily: 'monospace' }}>
+                            {afterValue === null ? 'null' : afterValue === undefined ? 'undefined' : typeof afterValue === 'string' ? `"${afterValue}"` : String(afterValue)}
+                          </Box>
+                        ) : (
+                          <JsonView value={afterValue} collapsed={expandAll ? false : 1} displayDataTypes={false} enableClipboard={false} style={{ display: 'inline', background: 'transparent' }} />
+                        )}
+                      </Box>
                     </Box>
                   </Box>
-                  <Box sx={{ 
-                    backgroundColor: 'rgba(76, 175, 80, 0.2)', 
-                    p: 1, 
-                    borderRadius: 1,
-                    '& *': { color: '#ffffff !important' }
-                  }}>
-                    <Box component="span" sx={{ color: '#4caf50', fontWeight: 'bold' }}>+ </Box>
-                    <Box component="span">
-                      {key}: <JsonView value={diff.changed[key].after} collapsed={expandAll ? false : 1} displayDataTypes={false} enableClipboard={false} style={{ display: 'inline', background: 'transparent' }} />
-                    </Box>
-                  </Box>
-                </Box>
-              ))}
+                );
+              })}
 
               {/* Unchanged fields (if showing) */}
               {showUnchanged && Object.keys(diff.unchanged).map((key) => {
                 const value = diff.unchanged[key];
-                const isPrimitive = typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean';
+                const isPrimitive = typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || value === null || value === undefined;
                 
                 return (
                   <Box key={`unchanged-${key}`} sx={{ mb: 1, color: 'text.secondary', p: 1 }}>
                     {key}: {isPrimitive ? (
                       <Box component="span" sx={{ fontFamily: 'monospace' }}>
-                        {typeof value === 'string' ? `"${value}"` : String(value)}
+                        {value === null ? 'null' : value === undefined ? 'undefined' : typeof value === 'string' ? `"${value}"` : String(value)}
                       </Box>
                     ) : (
                       <JsonView value={value} collapsed={expandAll ? false : 1} displayDataTypes={false} enableClipboard={false} style={{ display: 'inline', background: 'transparent' }} />

@@ -10,15 +10,22 @@ import remarkGfm from 'remark-gfm';
 
 interface PromptViewerProps {
   input: Record<string, any> | null;
+  output?: Record<string, any> | null;  // NEW: Also check output for SDK v0.3.0
 }
 
 /**
- * Extract prompt from input (handles different formats)
+ * Extract prompt from input OR output (handles different formats)
+ * SDK v0.3.0 stores LLM data in output._llm_messages
  */
-function extractPrompt(input: any): { system?: string; user?: string; messages?: any[] } | null {
+function extractPrompt(input: any, output?: any): { system?: string; user?: string; messages?: any[] } | null {
+  // SDK v0.3.0: Check output._llm_messages first (NEW format)
+  if (output && output._llm_messages && Array.isArray(output._llm_messages)) {
+    return { messages: output._llm_messages };
+  }
+  
   if (!input) return null;
 
-  // OpenAI messages format
+  // OpenAI messages format (old format)
   if (input.messages && Array.isArray(input.messages)) {
     return { messages: input.messages };
   }
@@ -44,9 +51,9 @@ function extractPrompt(input: any): { system?: string; user?: string; messages?:
 /**
  * Prompt viewer component
  */
-export function PromptViewer({ input }: PromptViewerProps) {
+export function PromptViewer({ input, output }: PromptViewerProps) {
   const [copySuccess, setCopySuccess] = useState(false);
-  const prompt = extractPrompt(input);
+  const prompt = extractPrompt(input, output);  // Check both input and output
 
   const handleCopy = () => {
     if (prompt) {

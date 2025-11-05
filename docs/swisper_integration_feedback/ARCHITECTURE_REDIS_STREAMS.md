@@ -860,15 +860,15 @@ OBSERVABILITY_REDIS_URL=redis://172.17.0.1:6379
 async def initialize_redis_publisher(redis_url: str, ...) -> None:
     """Initialize with connectivity verification"""
     global _redis_client
-    
+
     try:
         # Connect to Redis
         _redis_client = redis.from_url(redis_url)
-        
+
         # VERIFY: Can we reach Redis?
         await _redis_client.ping()
         logger.info("✅ Redis connectivity verified")
-        
+
         # VERIFY: Can we write to stream?
         test_id = await _redis_client.xadd(
             "observability:health_check",
@@ -876,10 +876,10 @@ async def initialize_redis_publisher(redis_url: str, ...) -> None:
             maxlen=10
         )
         logger.info("✅ Redis write permission verified")
-        
+
         # Success!
         logger.info(f"✅ Redis publisher ready: {redis_url}")
-        
+
     except redis.ConnectionError:
         logger.error("❌ Cannot connect to Redis at {redis_url}")
         logger.error("   Check Redis is running and accessible")
@@ -925,15 +925,15 @@ Swisper SDK                    Redis                    SwisperStudio Consumer
 **Consumer side (writes heartbeat):**
 ```python
 class ObservabilityConsumer:
-    
+
     async def start(self):
         """Start with heartbeat mechanism"""
         # ... existing startup ...
-        
+
         # Start heartbeat worker
         self.heartbeat_task = asyncio.create_task(self._heartbeat_worker())
         logger.info("✅ Consumer heartbeat started")
-    
+
     async def _heartbeat_worker(self):
         """Write heartbeat every 5 seconds"""
         while self.running:
@@ -959,7 +959,7 @@ class ObservabilityConsumer:
 async def verify_consumer_health(redis_client, timeout: float = 3.0) -> bool:
     """
     Verify SwisperStudio consumer is running and healthy.
-    
+
     Checks for consumer heartbeat written every 5 seconds.
     Returns True if consumer active, False otherwise.
     """
@@ -969,26 +969,26 @@ async def verify_consumer_health(redis_client, timeout: float = 3.0) -> bool:
             redis_client.get("swisper_studio:consumer:heartbeat"),
             timeout=timeout
         )
-        
+
         if not heartbeat_data:
             logger.warning("⚠️ SwisperStudio consumer heartbeat not found")
             logger.warning("   Consumer may not be running")
             return False
-        
+
         # Parse heartbeat
         heartbeat = json.loads(heartbeat_data)
         timestamp = datetime.fromisoformat(heartbeat["timestamp"])
         age_seconds = (datetime.utcnow() - timestamp).total_seconds()
-        
+
         if age_seconds > 10:
             logger.warning(f"⚠️ SwisperStudio consumer heartbeat stale ({age_seconds:.0f}s old)")
             logger.warning("   Consumer may be stopped or lagging")
             return False
-        
+
         logger.info("✅ SwisperStudio consumer verified (heartbeat active)")
         logger.info(f"   Last seen: {age_seconds:.1f} seconds ago")
         return True
-        
+
     except asyncio.TimeoutError:
         logger.warning("⚠️ Timeout checking consumer heartbeat")
         return False
@@ -1004,20 +1004,20 @@ async def initialize_redis_publisher(
 ) -> None:
     """
     Initialize Redis publisher with optional consumer verification.
-    
+
     Args:
         redis_url: Redis connection URL
         stream_name: Stream name for events
         verify_consumer: If True, check that consumer is running
     """
     global _redis_client, _stream_name
-    
+
     try:
         # Connect and verify Redis
         _redis_client = redis.from_url(redis_url)
         await _redis_client.ping()
         logger.info("✅ Redis connectivity verified")
-        
+
         # Test write permission
         await _redis_client.xadd(
             "observability:health_check",
@@ -1025,9 +1025,9 @@ async def initialize_redis_publisher(
             maxlen=10
         )
         logger.info("✅ Redis write permission verified")
-        
+
         _stream_name = stream_name
-        
+
         # Optional: Verify consumer is running
         if verify_consumer:
             consumer_healthy = await verify_consumer_health(_redis_client)
@@ -1037,9 +1037,9 @@ async def initialize_redis_publisher(
                 logger.warning("⚠️ SwisperStudio consumer not detected")
                 logger.warning("   Traces will be queued until consumer starts")
                 logger.warning("   Check SwisperStudio backend is running")
-        
+
         logger.info("✅ Redis publisher initialized successfully")
-        
+
     except Exception as e:
         logger.error(f"❌ Redis publisher initialization failed: {e}")
         raise
@@ -1080,13 +1080,13 @@ async def verify_end_to_end_connectivity(
 ) -> bool:
     """
     Verify end-to-end connectivity by sending test message.
-    
+
     Sends init request, waits for consumer acknowledgment.
     Returns True if consumer processes and acknowledges, False otherwise.
     """
     request_id = str(uuid.uuid4())
     ack_key = f"swisper_studio:init_ack:{request_id}"
-    
+
     try:
         # Send initialization request to stream
         await redis_client.xadd(
@@ -1099,27 +1099,27 @@ async def verify_end_to_end_connectivity(
             }
         )
         logger.info(f"Sent initialization request: {request_id}")
-        
+
         # Wait for acknowledgment (with timeout)
         start_time = time.time()
         while time.time() - start_time < timeout:
             ack_data = await redis_client.get(ack_key)
-            
+
             if ack_data:
                 ack = json.loads(ack_data)
                 logger.info("✅ End-to-end connectivity verified")
                 logger.info(f"   Consumer: {ack.get('consumer_name')}")
                 logger.info(f"   Status: {ack.get('status')}")
                 return True
-            
+
             await asyncio.sleep(0.1)  # Poll every 100ms
-        
+
         # Timeout - consumer didn't respond
         logger.warning("⚠️ Consumer did not acknowledge initialization")
         logger.warning(f"   Waited {timeout}s for response")
         logger.warning("   Consumer may be stopped or slow")
         return False
-        
+
     except Exception as e:
         logger.warning(f"⚠️ End-to-end verification failed: {e}")
         return False
@@ -1130,12 +1130,12 @@ async def verify_end_to_end_connectivity(
 async def _process_event(self, session: AsyncSession, data: dict):
     """Process event with init_request support"""
     event_type = data.get("event_type")
-    
+
     if event_type == "init_request":
         # Respond to initialization request
         request_id = data.get("request_id")
         ack_key = f"swisper_studio:init_ack:{request_id}"
-        
+
         await self.redis_client.setex(
             ack_key,
             30,  # Expire in 30 seconds
@@ -1148,7 +1148,7 @@ async def _process_event(self, session: AsyncSession, data: dict):
         )
         logger.info(f"✅ Acknowledged init request: {request_id}")
         return  # Don't store in database
-    
+
     # ... rest of event processing ...
 ```
 
@@ -1179,7 +1179,7 @@ async def verify_connectivity(
 ) -> dict:
     """
     Complete connectivity verification.
-    
+
     Returns:
         {
             "redis": bool,  # Can connect to Redis
@@ -1194,7 +1194,7 @@ async def verify_connectivity(
         "consumer": False,
         "end_to_end": False,
     }
-    
+
     # Check 1: Redis connectivity
     try:
         await redis_client.ping()
@@ -1203,7 +1203,7 @@ async def verify_connectivity(
     except Exception as e:
         logger.error(f"❌ Redis connectivity: FAILED - {e}")
         return results
-    
+
     # Check 2: Write permission
     try:
         await redis_client.xadd(
@@ -1216,7 +1216,7 @@ async def verify_connectivity(
     except Exception as e:
         logger.error(f"❌ Redis write permission: FAILED - {e}")
         return results
-    
+
     # Check 3: Consumer heartbeat
     if verify_consumer:
         try:
@@ -1225,7 +1225,7 @@ async def verify_connectivity(
                 hb_data = json.loads(heartbeat)
                 timestamp = datetime.fromisoformat(hb_data["timestamp"])
                 age = (datetime.utcnow() - timestamp).total_seconds()
-                
+
                 if age < 10:
                     results["consumer"] = True
                     logger.info(f"✅ Consumer heartbeat: OK ({age:.1f}s ago)")
@@ -1236,7 +1236,7 @@ async def verify_connectivity(
                 logger.warning("   Consumer may not be running")
         except Exception as e:
             logger.warning(f"⚠️ Consumer heartbeat check failed: {e}")
-    
+
     # Check 4: End-to-end test (optional, more thorough)
     if results["redis"] and results["write"]:
         try:
@@ -1244,7 +1244,7 @@ async def verify_connectivity(
             results["end_to_end"] = e2e_verified
         except Exception:
             pass
-    
+
     return results
 
 
@@ -1254,12 +1254,12 @@ async def _verify_end_to_end(
 ) -> bool:
     """
     End-to-end verification via ping-pong.
-    
+
     Sends test event, waits for consumer acknowledgment.
     """
     request_id = str(uuid.uuid4())
     ack_key = f"swisper_studio:init_ack:{request_id}"
-    
+
     try:
         # Send init request
         await redis_client.xadd(
@@ -1270,7 +1270,7 @@ async def _verify_end_to_end(
                 "timestamp": datetime.utcnow().isoformat(),
             }
         )
-        
+
         # Wait for acknowledgment (poll with timeout)
         start = time.time()
         while time.time() - start < timeout:
@@ -1280,11 +1280,11 @@ async def _verify_end_to_end(
                 logger.info("   Consumer processed test event")
                 return True
             await asyncio.sleep(0.1)
-        
+
         logger.warning("⚠️ End-to-end verification: TIMEOUT")
         logger.warning("   Consumer did not respond within {timeout}s")
         return False
-        
+
     except Exception as e:
         logger.warning(f"⚠️ End-to-end verification failed: {e}")
         return False
@@ -1301,7 +1301,7 @@ async def _verify_end_to_end(
 if settings.SWISPER_STUDIO_ENABLED:
     try:
         from swisper_studio_sdk import initialize_redis_publisher
-        
+
         # Initialize with full verification
         verification_results = await initialize_redis_publisher(
             redis_url=settings.SWISPER_STUDIO_REDIS_URL,
@@ -1309,12 +1309,12 @@ if settings.SWISPER_STUDIO_ENABLED:
             verify_consumer=True,  # Check consumer heartbeat
             verify_end_to_end=True,  # Optional: Full ping-pong test
         )
-        
+
         # Log results
         logger.info("✅ SwisperStudio observability initialized")
         logger.info(f"   Redis: {settings.SWISPER_STUDIO_REDIS_URL}")
         logger.info(f"   Stream: {settings.SWISPER_STUDIO_STREAM_NAME}")
-        
+
         # Detailed status
         if verification_results["redis"]:
             logger.info("   ✅ Redis connectivity: OK")
@@ -1325,10 +1325,10 @@ if settings.SWISPER_STUDIO_ENABLED:
         else:
             logger.warning("   ⚠️ Consumer not detected")
             logger.warning("   Events will queue until consumer starts")
-        
+
         if verification_results["end_to_end"]:
             logger.info("   ✅ End-to-end verified: WORKING")
-        
+
     except Exception as e:
         logger.error(f"❌ SwisperStudio observability failed: {e}")
         logger.error("   Observability disabled")
@@ -1378,29 +1378,29 @@ if settings.SWISPER_STUDIO_ENABLED:
 // SwisperStudio UI
 function ProjectConnectionStatus() {
   const [status, setStatus] = useState(null);
-  
+
   useEffect(() => {
     // Read heartbeat key
     fetch('/api/v1/projects/connection-status')
       .then(res => res.json())
       .then(setStatus);
   }, []);
-  
+
   return (
     <div>
       <h3>Connection Status</h3>
-      
+
       {/* Consumer Status */}
       <div>
-        <StatusIndicator 
-          status={status?.consumer_alive ? 'healthy' : 'down'} 
+        <StatusIndicator
+          status={status?.consumer_alive ? 'healthy' : 'down'}
         />
         Consumer: {status?.consumer_alive ? 'Running' : 'Stopped'}
         {status?.last_heartbeat && (
           <span>Last seen: {formatDistance(status.last_heartbeat)}</span>
         )}
       </div>
-      
+
       {/* Event Processing */}
       <div>
         Events in queue: {status?.stream_length || 0}
@@ -1408,7 +1408,7 @@ function ProjectConnectionStatus() {
           <Alert>Consumer falling behind - check resources</Alert>
         )}
       </div>
-      
+
       {/* Connected Projects */}
       <div>
         Active publishers: {status?.active_publishers || 0}
@@ -1429,28 +1429,28 @@ function ProjectConnectionStatus() {
 async def get_connection_status():
     """Get observability system health status"""
     client = redis.from_url(settings.OBSERVABILITY_REDIS_URL)
-    
+
     # Check consumer heartbeat
     heartbeat = await client.get("swisper_studio:consumer:heartbeat")
     consumer_alive = False
     last_heartbeat = None
-    
+
     if heartbeat:
         hb_data = json.loads(heartbeat)
         timestamp = datetime.fromisoformat(hb_data["timestamp"])
         age = (datetime.utcnow() - timestamp).total_seconds()
         consumer_alive = age < 10
         last_heartbeat = timestamp
-    
+
     # Check stream length
     stream_length = await client.xlen(settings.OBSERVABILITY_STREAM_NAME)
-    
+
     # Check consumer group lag
     pending = await client.xpending(
         settings.OBSERVABILITY_STREAM_NAME,
         settings.OBSERVABILITY_GROUP_NAME
     )
-    
+
     return {
         "consumer_alive": consumer_alive,
         "last_heartbeat": last_heartbeat.isoformat() if last_heartbeat else None,

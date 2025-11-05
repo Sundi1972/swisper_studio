@@ -255,7 +255,7 @@ export function ObservationDetailsPanel({ observation }: ObservationDetailsPanel
               <Typography variant="h6" sx={{ mb: 2 }}>
                 LLM Prompt
               </Typography>
-              <PromptViewer input={observation.input} />
+              <PromptViewer input={observation.input} output={observation.output} />
             </Box>
 
             <Divider sx={{ my: 3 }} />

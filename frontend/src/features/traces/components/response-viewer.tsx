@@ -12,21 +12,49 @@ interface ResponseViewerProps {
 }
 
 /**
+ * Extract LLM response from output (SDK v0.3.0 format)
+ */
+function extractLLMResponse(output: any): any {
+  if (!output) return null;
+  
+  // SDK v0.3.0: Check _llm_result first
+  if (output._llm_result) {
+    return output._llm_result;
+  }
+  
+  // Fallback: show whole output (filter out internal fields)
+  if (typeof output === 'object' && !Array.isArray(output)) {
+    const filtered: any = {};
+    for (const key in output) {
+      if (!key.startsWith('_')) {
+        filtered[key] = output[key];
+      }
+    }
+    return Object.keys(filtered).length > 0 ? filtered : output;
+  }
+  
+  return output;
+}
+
+/**
  * Response viewer component
  */
 export function ResponseViewer({ output }: ResponseViewerProps) {
   const [copySuccess, setCopySuccess] = useState(false);
+  
+  // Extract LLM result (might be in _llm_result for SDK v0.3.0)
+  const response = extractLLMResponse(output);
 
   const handleCopy = () => {
-    if (output) {
-      const text = JSON.stringify(output, null, 2);
+    if (response) {
+      const text = JSON.stringify(response, null, 2);
       navigator.clipboard.writeText(text);
       setCopySuccess(true);
       setTimeout(() => setCopySuccess(false), 2000);
     }
   };
 
-  if (!output || Object.keys(output).length === 0) {
+  if (!response || (typeof response === 'object' && Object.keys(response).length === 0)) {
     return (
       <Box sx={{ p: 2, color: 'text.secondary', fontStyle: 'italic' }}>
         No response data available
@@ -53,7 +81,7 @@ export function ResponseViewer({ output }: ResponseViewerProps) {
         '& *': { color: '#ffffff !important' }
       }}>
         <JsonView 
-          value={output}
+          value={response}
           collapsed={2}
           displayDataTypes={false}
           enableClipboard={false}
