@@ -160,10 +160,32 @@ def traced(
                 except Exception:
                     pass
 
+                # Check if LLM telemetry was captured for this observation
+                llm_data = None
+                try:
+                    from ..wrappers.llm_wrapper import get_llm_telemetry
+                    llm_data = get_llm_telemetry(obs_id)
+                except:
+                    pass
+                
+                # Merge LLM data into output if available
+                final_output = output_data or {}
+                if llm_data:
+                    # Add LLM prompt/response data
+                    if 'input' in llm_data and llm_data['input'].get('messages'):
+                        final_output['_llm_messages'] = llm_data['input']['messages']
+                    if 'output' in llm_data:
+                        final_output['_llm_result'] = llm_data['output'].get('result')
+                        final_output['_llm_tokens'] = {
+                            'total': llm_data['output'].get('total_tokens'),
+                            'prompt': llm_data['output'].get('prompt_tokens'),
+                            'completion': llm_data['output'].get('completion_tokens'),
+                        }
+                
                 # FIRE-AND-FORGET: End observation in background (non-blocking)
                 client.end_observation_background(
                     observation_id=obs_id,
-                    output=output_data,
+                    output=final_output,
                     level="DEFAULT",
                 )
 
