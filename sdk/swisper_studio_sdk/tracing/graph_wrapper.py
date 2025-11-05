@@ -63,9 +63,10 @@ def create_traced_graph(
             This is the "magic" that makes the one-line integration work.
             """
             # Wrap function with @traced decorator
+            # Use "AUTO" to trigger type detection based on captured LLM data
             wrapped_func = traced(
                 name=name,
-                observation_type="SPAN"
+                observation_type="AUTO"  # Will auto-detect GENERATION/TOOL/AGENT/SPAN
             )(func)
 
             # Call original add_node with wrapped function

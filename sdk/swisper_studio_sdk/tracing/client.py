@@ -162,14 +162,18 @@ class SwisperStudioClient:
         output: Optional[Dict[str, Any]] = None,
         level: str = "DEFAULT",
         status_message: Optional[str] = None,
+        update_type: Optional[str] = None,  # NEW: Update observation type if needed
     ) -> None:
         """
         End observation in background (fire-and-forget, non-blocking).
         
         Zero latency impact - HTTP happens in background.
+        
+        Args:
+            update_type: If provided, updates observation type (e.g., SPAN → GENERATION when LLM detected)
         """
         asyncio.create_task(self._end_observation_async(
-            observation_id, output, level, status_message
+            observation_id, output, level, status_message, update_type
         ))
     
     async def _end_observation_async(
@@ -178,17 +182,24 @@ class SwisperStudioClient:
         output: Optional[Dict[str, Any]],
         level: str,
         status_message: Optional[str],
+        update_type: Optional[str] = None,
     ) -> None:
         """Background task for ending observation"""
         try:
+            patch_data = {
+                "end_time": datetime.utcnow().isoformat(),
+                "output": output,
+                "level": level,
+                "status_message": status_message,
+            }
+            
+            # NEW: Update type if LLM data was detected
+            if update_type:
+                patch_data["type"] = update_type
+            
             await self.client.patch(
                 f"/api/v1/observations/{observation_id}",
-                json={
-                    "end_time": datetime.utcnow().isoformat(),
-                    "output": output,
-                    "level": level,
-                    "status_message": status_message,
-                }
+                json=patch_data
             )
         except Exception as e:
             # Silent failure - log but don't crash app

@@ -58,7 +58,7 @@ def _detect_observation_type(
 
 def traced(
     name: str | None = None,
-    observation_type: str = "SPAN",
+    observation_type: str = "AUTO",  # AUTO = detect based on LLM data
 ):
     """
     Auto-trace any function/node.
@@ -71,7 +71,8 @@ def traced(
     
     Args:
         name: Observation name (defaults to function name)
-        observation_type: Type of observation (SPAN, GENERATION, EVENT, TOOL, AGENT)
+        observation_type: Type of observation (SPAN, GENERATION, TOOL, AGENT, AUTO)
+                         AUTO = Auto-detect based on captured LLM data
     """
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         obs_name = name or func.__name__
@@ -162,9 +163,11 @@ def traced(
 
                 # Check if LLM telemetry was captured for this observation
                 llm_data = None
+                has_llm_data = False
                 try:
                     from ..wrappers.llm_wrapper import get_llm_telemetry
                     llm_data = get_llm_telemetry(obs_id)
+                    has_llm_data = bool(llm_data)
                 except:
                     pass
                 
@@ -182,11 +185,23 @@ def traced(
                             'completion': llm_data['output'].get('completion_tokens'),
                         }
                 
+                # AUTO-DETECT observation type if set to "AUTO"
+                final_type = observation_type
+                update_type = None
+                
+                if observation_type == "AUTO":
+                    final_type = _detect_observation_type(obs_name, has_llm_data, False)
+                    # If type changed from AUTO to something specific, update it
+                    if final_type != "SPAN":  # Only update if we detected something specific
+                        update_type = final_type
+                
                 # FIRE-AND-FORGET: End observation in background (non-blocking)
+                # If LLM data present, update type to GENERATION
                 client.end_observation_background(
                     observation_id=obs_id,
                     output=final_output,
                     level="DEFAULT",
+                    update_type=update_type,  # Will update SPAN → GENERATION if LLM detected
                 )
 
                 return result
