@@ -200,6 +200,7 @@ def initialize_tracing(
     api_key: str,
     project_id: str,
     enabled: bool = True,
+    wrap_llm: bool = True,  # NEW: Auto-wrap LLM calls for prompt capture
 ) -> None:
     """
     Initialize tracing (call once at startup)
@@ -209,6 +210,7 @@ def initialize_tracing(
         api_key: SwisperStudio API key
         project_id: Project ID in SwisperStudio
         enabled: Whether tracing is enabled
+        wrap_llm: Whether to automatically wrap LLM calls (default: True)
     """
     global _studio_client
     if enabled:
@@ -217,6 +219,20 @@ def initialize_tracing(
             api_key=api_key,
             project_id=project_id,
         )
+        
+        # NEW: Auto-wrap LLM adapter for prompt capture (Issue #2 fix)
+        if wrap_llm:
+            try:
+                # Delayed import to avoid circular dependency
+                import sys
+                if 'swisper_studio_sdk.wrappers.llm_wrapper' in sys.modules:
+                    from ..wrappers.llm_wrapper import wrap_llm_adapter
+                else:
+                    from swisper_studio_sdk.wrappers.llm_wrapper import wrap_llm_adapter
+                wrap_llm_adapter()
+                logger.info("✅ LLM prompt capture enabled")
+            except Exception as e:
+                logger.debug(f"LLM wrapping skipped: {e}")
 
 
 def get_studio_client() -> Optional[SwisperStudioClient]:
