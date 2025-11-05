@@ -18,7 +18,6 @@ import {
   FolderOpen as ProjectsIcon,
   AdminPanelSettings as AdminIcon,
   People as PeopleIcon,
-  AccountTree as SystemIcon,
   KeyboardArrowDown as DownIcon,
 } from '@mui/icons-material';
 import { useState } from 'react';
@@ -112,18 +111,6 @@ export function GlobalHeader() {
               </Menu>
             </>
           )}
-
-          {/* System Architecture */}
-          <Button
-            variant={isActive('/system-architecture') ? 'contained' : 'text'}
-            startIcon={<SystemIcon />}
-            onClick={() => navigate('/system-architecture')}
-            sx={{ 
-              color: isActive('/system-architecture') ? 'primary.contrastText' : 'text.primary',
-            }}
-          >
-            System
-          </Button>
         </Box>
 
         {/* Right Side: Environment Selector (when in project) + User Menu */}

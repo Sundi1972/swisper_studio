@@ -5,6 +5,7 @@ import { LoginPage } from './features/auth/components/login-page';
 import { ProjectListPage } from './features/projects/components/project-list-page';
 import { ProjectLayout } from './features/projects/components/project-layout';
 import { ProjectOverview } from './features/projects/components/project-overview';
+import { ProjectSettingsPage } from './features/projects/components/project-settings-page';
 import { TraceListPage } from './features/traces/components/trace-list-page';
 import { TraceDetailPage } from './features/traces/components/trace-detail-page';
 import { ConfigPage } from './features/config/components/config-page';
@@ -71,6 +72,7 @@ export function App() {
           <Route path="tracing/:traceId" element={<TraceDetailPage />} />
           <Route path="graphs" element={<SystemArchitectureView />} />
           <Route path="config" element={<ConfigPage />} />
+          <Route path="settings" element={<ProjectSettingsPage />} />
           {/* Phase 4+: Add more routes as we build them */}
           {/* <Route path="analytics" element={<AnalyticsPage />} /> */}
         </Route>

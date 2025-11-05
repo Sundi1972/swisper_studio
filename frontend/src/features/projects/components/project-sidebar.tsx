@@ -15,6 +15,7 @@ import {
   Timeline as TimelineIcon,
   AccountTree as GraphIcon,
   Settings as SettingsIcon,
+  Tune as TuneIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -78,6 +79,12 @@ export function ProjectSidebar({ projectId }: ProjectSidebarProps) {
       label: 'Configuration',
       icon: <SettingsIcon />,
       path: `/projects/${projectId}/config`,
+    },
+    {
+      id: 'settings',
+      label: 'Settings',
+      icon: <TuneIcon />,
+      path: `/projects/${projectId}/settings`,
     },
   ];
 
