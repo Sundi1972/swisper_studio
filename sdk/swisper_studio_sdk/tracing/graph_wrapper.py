@@ -15,11 +15,12 @@ Usage:
 
 from typing import Type, TypeVar
 from langgraph.graph import StateGraph
+import copy
 import functools
 
 from .decorator import traced
 from .client import get_studio_client
-from .context import set_current_trace
+from .context import set_current_trace, set_current_observation
 
 TState = TypeVar('TState')
 
@@ -102,6 +103,20 @@ def create_traced_graph(
                 
                 # Set trace context for observations
                 set_current_trace(trace_id)
+                
+                # FIX: Create parent observation for the graph (Issue #1)
+                # This makes all child nodes nest under "global_supervisor" parent
+                parent_obs_id = await client.create_observation(
+                    trace_id=trace_id,
+                    name=trace_name,  # "global_supervisor"
+                    type="AGENT",  # Graph is an agent
+                    parent_observation_id=None,  # Top level
+                    input=copy.deepcopy(input_state) if isinstance(input_state, dict) else None,
+                )
+                
+                # Set as current observation so child nodes nest under it
+                parent_token = set_current_observation(parent_obs_id)
+                
             except Exception as e:
                 # If trace creation fails, continue without tracing
                 print(f"⚠️ Failed to create trace: {e}")
@@ -110,9 +125,22 @@ def create_traced_graph(
             # Run graph with trace context
             try:
                 result = await original_ainvoke(input_state, config, **invoke_kwargs)
+                
+                # FIX: End parent observation with result
+                try:
+                    await client.end_observation(
+                        observation_id=parent_obs_id,
+                        output=copy.deepcopy(result) if isinstance(result, dict) else None,
+                        level="DEFAULT",
+                    )
+                except Exception:
+                    # Ignore if ending parent observation fails
+                    pass
+                
                 return result
             finally:
-                # Clear trace context
+                # Clear observation and trace context
+                set_current_observation(None, parent_token)
                 set_current_trace(None)
         
         # Replace ainvoke with traced version

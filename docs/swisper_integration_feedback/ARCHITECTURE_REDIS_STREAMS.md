@@ -1,9 +1,9 @@
 # SwisperStudio Architecture Recommendation - Redis Streams
 
-**Version:** v1.0  
-**Date:** 2025-11-05  
-**Requested By:** Swisper Development Team  
-**Priority:** High - Performance Critical  
+**Version:** v1.0
+**Date:** 2025-11-05
+**Requested By:** Swisper Development Team
+**Priority:** High - Performance Critical
 **Estimated Effort:** 3 days
 
 ---
@@ -39,7 +39,7 @@
 Swisper → [In-Process Queue] → HTTP Batch → SwisperStudio
 ```
 
-**Pros:** Simple, self-contained  
+**Pros:** Simple, self-contained
 **Cons:** Lost on crash, no replay, still coupled via HTTP
 
 ---
@@ -49,7 +49,7 @@ Swisper → [In-Process Queue] → HTTP Batch → SwisperStudio
 Swisper → [Kafka] → SwisperStudio Consumer → Database
 ```
 
-**Pros:** Enterprise-grade, battle-tested  
+**Pros:** Enterprise-grade, battle-tested
 **Cons:** Heavy infrastructure, operational complexity
 
 ---
@@ -59,7 +59,7 @@ Swisper → [Kafka] → SwisperStudio Consumer → Database
 Swisper → [Redis Streams] → SwisperStudio Consumer → Database
 ```
 
-**Pros:** Fast (1-2ms), reliable, no new infrastructure  
+**Pros:** Fast (1-2ms), reliable, no new infrastructure
 **Cons:** None significant
 
 **Why Redis Streams:**
@@ -200,23 +200,23 @@ async def initialize_redis_publisher(
 ) -> None:
     """
     Initialize Redis publisher for observability events.
-    
+
     Args:
         redis_url: Redis connection URL (e.g., "redis://redis:6379")
         stream_name: Stream name for events
         max_stream_length: Max events to keep in stream (FIFO eviction)
     """
     global _redis_client, _stream_name, _max_stream_length
-    
+
     try:
         _redis_client = redis.from_url(redis_url, decode_responses=False)
         _stream_name = stream_name
         _max_stream_length = max_stream_length
-        
+
         # Test connection
         await _redis_client.ping()
         print(f"✅ Redis publisher connected: {redis_url}")
-        
+
     except Exception as e:
         print(f"⚠️ Redis publisher initialization failed: {e}")
         _redis_client = None  # Disable tracing
@@ -234,9 +234,9 @@ async def publish_event(
 ) -> None:
     """
     Publish observability event to Redis Stream.
-    
+
     Non-blocking - returns in 1-2ms.
-    
+
     Args:
         event_type: Event type (trace_start, observation_start, observation_end, etc.)
         trace_id: Trace identifier
@@ -247,7 +247,7 @@ async def publish_event(
     client = get_redis_client()
     if not client:
         return  # Tracing disabled or not initialized
-    
+
     try:
         # Build event payload
         event = {
@@ -256,20 +256,20 @@ async def publish_event(
             b"project_id": project_id.encode(),
             b"timestamp": str(time.time()).encode(),
         }
-        
+
         if observation_id:
             event[b"observation_id"] = observation_id.encode()
-        
+
         if data:
             event[b"data"] = json.dumps(data).encode()
-        
+
         # XADD - publish to stream (1-2ms!)
         await client.xadd(
             _stream_name,
             event,
             maxlen=_max_stream_length,  # Prevent unbounded growth
         )
-        
+
     except Exception:
         # Silent failure - don't break main application
         pass
@@ -282,19 +282,19 @@ from .redis_publisher import publish_event, get_redis_client
 
 async def traced_ainvoke(input_state, config=None, **invoke_kwargs):
     """Create trace before running graph (Redis Streams version)"""
-    
+
     client = get_redis_client()
     if not client:
         # Redis not initialized, run without tracing
         return await original_ainvoke(input_state, config, **invoke_kwargs)
-    
+
     # Extract metadata
     user_id = input_state.get("user_id") if isinstance(input_state, dict) else None
     session_id = input_state.get("chat_id") or input_state.get("session_id") if isinstance(input_state, dict) else None
-    
+
     # Generate trace ID locally
     trace_id = str(uuid.uuid4())
-    
+
     # PUBLISH TRACE START (1-2ms, non-blocking!)
     await publish_event(
         event_type="trace_start",
@@ -307,10 +307,10 @@ async def traced_ainvoke(input_state, config=None, **invoke_kwargs):
             "timestamp": datetime.utcnow().isoformat(),
         }
     )
-    
+
     # Set trace context
     set_current_trace(trace_id)
-    
+
     try:
         # Execute graph (NO WAITING!)
         result = await original_ainvoke(input_state, config, **invoke_kwargs)
@@ -326,22 +326,22 @@ from .redis_publisher import publish_event, get_redis_client
 
 async def async_wrapper(*args, **kwargs):
     """Traced wrapper with Redis Streams (non-blocking)"""
-    
+
     if not get_redis_client():
         # Redis not available - just run function
         return await func(*args, **kwargs)
-    
+
     trace_id = get_current_trace()
     if not trace_id:
         return await func(*args, **kwargs)
-    
+
     # Generate observation ID locally
     obs_id = str(uuid.uuid4())
     parent_obs = get_current_observation()
-    
+
     # Serialize input
     input_data = _serialize_state(args[0] if args else None)
-    
+
     # PUBLISH START EVENT (1-2ms, non-blocking!)
     await publish_event(
         event_type="observation_start",
@@ -356,17 +356,17 @@ async def async_wrapper(*args, **kwargs):
             "start_time": datetime.utcnow().isoformat(),
         }
     )
-    
+
     # Set as current observation
     token = set_current_observation(obs_id)
-    
+
     try:
         # EXECUTE FUNCTION (NO WAITING!)
         result = await func(*args, **kwargs)
-        
+
         # Serialize output
         output_data = _serialize_state(result)
-        
+
         # PUBLISH END EVENT (1-2ms, non-blocking!)
         await publish_event(
             event_type="observation_end",
@@ -379,9 +379,9 @@ async def async_wrapper(*args, **kwargs):
                 "end_time": datetime.utcnow().isoformat(),
             }
         )
-        
+
         return result
-        
+
     except Exception as e:
         # PUBLISH ERROR EVENT
         await publish_event(
@@ -397,7 +397,7 @@ async def async_wrapper(*args, **kwargs):
             }
         )
         raise
-        
+
     finally:
         set_current_observation(None)
 ```
@@ -431,16 +431,16 @@ logger = logging.getLogger(__name__)
 class ObservabilityConsumer:
     """
     Consumer for observability events from Redis Streams.
-    
+
     Reads from Swisper's Redis instance (redis://172.17.0.1:6379),
     processes events in batches, and stores in SwisperStudio's database.
-    
+
     Uses Redis consumer groups for:
     - Automatic retry on failure
     - Load balancing across multiple consumers
     - Guaranteed delivery
     """
-    
+
     def __init__(
         self,
         redis_url: str,
@@ -458,20 +458,20 @@ class ObservabilityConsumer:
         self.db_session_factory = db_session_factory
         self.redis_client = None
         self.running = False
-    
+
     async def start(self):
         """Start the consumer"""
         logger.info(f"Starting ObservabilityConsumer...")
         logger.info(f"  Redis URL: {self.redis_url}")
         logger.info(f"  Stream: {self.stream_name}")
         logger.info(f"  Group: {self.group_name}")
-        
+
         # Connect to Swisper's Redis
         self.redis_client = redis.from_url(
             self.redis_url,
             decode_responses=True,  # Auto-decode strings
         )
-        
+
         # Test connection
         try:
             await self.redis_client.ping()
@@ -479,7 +479,7 @@ class ObservabilityConsumer:
         except Exception as e:
             logger.error(f"❌ Failed to connect to Redis: {e}")
             raise
-        
+
         # Create consumer group (if doesn't exist)
         try:
             await self.redis_client.xgroup_create(
@@ -494,12 +494,12 @@ class ObservabilityConsumer:
                 logger.info(f"✅ Consumer group already exists: {self.group_name}")
             else:
                 raise
-        
+
         # Start consuming
         self.running = True
         logger.info("✅ ObservabilityConsumer started - processing events...")
         await self._consume_loop()
-    
+
     async def stop(self):
         """Gracefully stop the consumer"""
         logger.info("Stopping ObservabilityConsumer...")
@@ -507,7 +507,7 @@ class ObservabilityConsumer:
         if self.redis_client:
             await self.redis_client.close()
         logger.info("✅ ObservabilityConsumer stopped")
-    
+
     async def _consume_loop(self):
         """Main consumption loop - runs continuously"""
         while self.running:
@@ -520,44 +520,44 @@ class ObservabilityConsumer:
                     count=self.batch_size,
                     block=1000,  # 1 second timeout
                 )
-                
+
                 if events:
                     # events = [('observability:events', [('msg_id', {data}), ...])]
                     for stream_name, messages in events:
                         await self._process_batch(messages)
-                        
+
             except asyncio.CancelledError:
                 logger.info("Consumer loop cancelled - shutting down")
                 break
             except Exception as e:
                 logger.error(f"❌ Consumer error: {e}")
                 await asyncio.sleep(1.0)  # Back off on error
-    
+
     async def _process_batch(self, messages: list):
         """
         Process batch of messages.
-        
+
         Inserts into database and acknowledges successful processing.
         Failed messages are not acknowledged and will be retried.
         """
         logger.debug(f"Processing batch of {len(messages)} events")
-        
+
         async with self.db_session_factory() as session:
             processed_ids = []
-            
+
             for message_id, data in messages:
                 try:
                     await self._process_event(session, data)
                     processed_ids.append(message_id)
-                    
+
                 except Exception as e:
                     logger.error(f"❌ Failed to process event {message_id}: {e}")
                     # Don't add to processed_ids - will be retried by consumer group
-            
+
             # Commit successful events
             if processed_ids:
                 await session.commit()
-                
+
                 # Acknowledge processed messages
                 for msg_id in processed_ids:
                     await self.redis_client.xack(
@@ -565,16 +565,16 @@ class ObservabilityConsumer:
                         self.group_name,
                         msg_id
                     )
-                
+
                 logger.info(f"✅ Processed {len(processed_ids)} events")
-    
+
     async def _process_event(self, session: AsyncSession, data: dict):
         """Process single event and insert to database"""
         event_type = data.get("event_type")
         trace_id = data.get("trace_id")
         observation_id = data.get("observation_id")
         event_data = json.loads(data.get("data", "{}"))
-        
+
         if event_type == "trace_start":
             # Create trace
             trace = Trace(
@@ -588,7 +588,7 @@ class ObservabilityConsumer:
             )
             session.add(trace)
             logger.debug(f"Created trace: {trace_id}")
-            
+
         elif event_type == "observation_start":
             # Create observation
             observation = Observation(
@@ -603,7 +603,7 @@ class ObservabilityConsumer:
             )
             session.add(observation)
             logger.debug(f"Created observation: {observation_id}")
-            
+
         elif event_type == "observation_end":
             # Update observation with output
             observation = await session.get(Observation, observation_id)
@@ -615,7 +615,7 @@ class ObservabilityConsumer:
                 logger.debug(f"Updated observation: {observation_id}")
             else:
                 logger.warning(f"⚠️ Observation not found: {observation_id}")
-            
+
         elif event_type == "observation_error":
             # Mark observation as error
             observation = await session.get(Observation, observation_id)
@@ -635,7 +635,7 @@ from app.services.observability_consumer import ObservabilityConsumer
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # ... existing startup ...
-    
+
     # Start observability consumer
     if settings.OBSERVABILITY_ENABLED:
         consumer = ObservabilityConsumer(
@@ -645,10 +645,10 @@ async def lifespan(app: FastAPI):
             group_name=settings.OBSERVABILITY_GROUP_NAME,
             batch_size=settings.OBSERVABILITY_BATCH_SIZE,
         )
-        
+
         consumer_task = asyncio.create_task(consumer.start())
         logger.info("✅ Observability consumer started")
-    
+
     try:
         yield
     finally:
@@ -663,7 +663,7 @@ async def lifespan(app: FastAPI):
 ```python
 class Settings(BaseSettings):
     # ... existing settings ...
-    
+
     # Observability Consumer (Redis Streams)
     OBSERVABILITY_ENABLED: bool = True
     OBSERVABILITY_REDIS_URL: str = "redis://172.17.0.1:6379"  # Swisper's Redis
@@ -790,7 +790,7 @@ SWISPER_STUDIO_MAX_STREAM_LENGTH: int = 100000  # Keep last 100k events
 if settings.SWISPER_STUDIO_ENABLED:
     try:
         from swisper_studio_sdk import initialize_redis_publisher
-        
+
         await initialize_redis_publisher(
             redis_url=settings.SWISPER_STUDIO_REDIS_URL,
             stream_name=settings.SWISPER_STUDIO_STREAM_NAME,
@@ -812,7 +812,7 @@ if settings.SWISPER_STUDIO_ENABLED:
 ```python
 class Settings(BaseSettings):
     # ... existing settings ...
-    
+
     # Observability Consumer
     OBSERVABILITY_ENABLED: bool = True
     OBSERVABILITY_REDIS_URL: str = "redis://172.17.0.1:6379"  # Swisper's Redis from host
@@ -871,13 +871,13 @@ redis-cli -h 172.17.0.1 XREADGROUP GROUP swisper_studio_consumers consumer_1 \
 async def get_observability_metrics():
     # Connect to Redis
     client = redis.from_url(settings.OBSERVABILITY_REDIS_URL)
-    
+
     # Get stream metrics
     stream_length = await client.xlen(settings.OBSERVABILITY_STREAM_NAME)
-    
+
     # Get consumer group info
     groups = await client.xinfo_groups(settings.OBSERVABILITY_STREAM_NAME)
-    
+
     return {
         "stream_length": stream_length,
         "consumer_groups": groups,
@@ -904,7 +904,7 @@ async def get_observability_metrics():
 async def test_redis_publisher_publishes_events():
     # Initialize with test Redis
     await initialize_redis_publisher("redis://localhost:6379")
-    
+
     # Publish event
     await publish_event(
         event_type="test_event",
@@ -912,11 +912,11 @@ async def test_redis_publisher_publishes_events():
         project_id="test-proj",
         data={"foo": "bar"}
     )
-    
+
     # Verify event in stream
     client = redis.from_url("redis://localhost:6379")
     events = await client.xrange("observability:events", count=1)
-    
+
     assert len(events) == 1
     assert events[0][1]["event_type"] == "test_event"
 ```
@@ -932,11 +932,11 @@ async def test_consumer_processes_trace_events():
         "trace_id": "test-123",
         "data": json.dumps({"name": "test_trace"}),
     })
-    
+
     # Start consumer
     consumer = ObservabilityConsumer(...)
     await consumer._consume_loop_once()  # Process one batch
-    
+
     # Verify trace in database
     trace = await session.get(Trace, "test-123")
     assert trace is not None
@@ -953,14 +953,14 @@ async def test_swisper_to_swisperstudio_flow():
     response = await swisper_client.post("/chat", json={
         "message": "test observability"
     })
-    
+
     # 2. Wait for consumer to process (max 2 seconds)
     await asyncio.sleep(2)
-    
+
     # 3. Check SwisperStudio has trace
     traces = await swisperstudio_client.get("/api/v1/traces")
     assert len(traces) > 0
-    
+
     # 4. Verify all nodes captured
     trace = traces[0]
     observations = await swisperstudio_client.get(f"/api/v1/observations?trace_id={trace.id}")

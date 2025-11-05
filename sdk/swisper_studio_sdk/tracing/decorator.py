@@ -6,6 +6,7 @@ Works with both sync and async functions.
 """
 
 import asyncio
+import copy
 import functools
 import time
 from typing import TypeVar, Callable
@@ -94,13 +95,14 @@ def traced(
                     return func(*args, **kwargs)
 
             # Capture input (LangGraph state is a dict or TypedDict)
+            # CRITICAL: Must use deep copy to avoid mutations affecting captured state
             input_data = None
             if args:
                 try:
                     state = args[0]
                     # TypedDict/dict (most common for LangGraph)
                     if isinstance(state, dict):
-                        input_data = dict(state)  # Copy the dict
+                        input_data = copy.deepcopy(state)  # DEEP copy to isolate mutations!
                     # Pydantic models
                     elif hasattr(state, 'model_dump'):
                         input_data = state.model_dump()
@@ -108,7 +110,7 @@ def traced(
                         input_data = state.dict()
                     # Other objects with __dict__
                     elif hasattr(state, '__dict__'):
-                        input_data = vars(state)
+                        input_data = copy.deepcopy(vars(state))  # DEEP copy
                 except Exception:
                     # Skip if serialization fails
                     pass
@@ -143,11 +145,12 @@ def traced(
                     result = func(*args, **kwargs)
 
                 # Capture output (LangGraph returns dict or TypedDict)
+                # CRITICAL: Must use deep copy to isolate from input mutations
                 output_data = None
                 try:
                     # TypedDict/dict (most common for LangGraph)
                     if isinstance(result, dict):
-                        output_data = dict(result)  # Copy the dict
+                        output_data = copy.deepcopy(result)  # DEEP copy!
                     # Pydantic models
                     elif hasattr(result, 'model_dump'):
                         output_data = result.model_dump()
@@ -155,7 +158,7 @@ def traced(
                         output_data = result.dict()
                     # Other objects
                     elif hasattr(result, '__dict__'):
-                        output_data = vars(result)
+                        output_data = copy.deepcopy(vars(result))  # DEEP copy
                 except Exception:
                     pass
 
