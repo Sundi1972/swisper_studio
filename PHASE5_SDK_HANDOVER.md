@@ -240,7 +240,65 @@
 
 ---
 
-### **Priority 4: Config Comparison & Diff** (3-5 days)
+### **Priority 4: Environment-Scoped Traces** (1-2 days) 🔥
+
+**Smart environment tagging for better trace organization**
+
+**Problem:** 
+- Currently all environments (dev/staging/prod) use same project ID
+- Can't easily filter traces by environment
+- Can't compare same request across environments
+
+**Solution:**
+- Add `environment` parameter to SDK initialization
+- Tag each trace with environment ("dev", "staging", "production")
+- Make environment selector functional (currently cosmetic)
+- Filter traces by environment
+
+**Features:**
+- [ ] Add `environment` parameter to SDK (`initialize_tracing()`)
+- [ ] Add `environment` field to Trace model (migration)
+- [ ] Store environment in trace metadata
+- [ ] Make environment selector filter traces (not just cosmetic)
+- [ ] Add environment badge to trace list
+- [ ] Filter traces: "Show only production traces"
+- [ ] Compare traces: "Same request in dev vs prod"
+
+**SDK Change:**
+```python
+# In dev Swisper:
+initialize_tracing(
+    project_id="abc-123",
+    environment="dev",  # ← NEW
+    ...
+)
+
+# In production Swisper:
+initialize_tracing(
+    project_id="abc-123",
+    environment="production",  # ← Different env, same project
+    ...
+)
+```
+
+**UI Improvements:**
+- Environment selector becomes a filter (not just label)
+- Trace list shows environment badge
+- "Compare across environments" feature
+
+**Configuration Interaction (to design):**
+- How do environment-scoped traces relate to environment-scoped configs?
+- Auto-use matching environment config?
+- Design interaction patterns
+
+**Duration:** 1-2 days  
+**Complexity:** Medium  
+**Priority:** High - improves debugging and clarity  
+**Depends on:** Phase 5.1 (basic tracing working)
+
+---
+
+### **Priority 5: Config Comparison & Diff** (3-5 days)
 
 **Natural extension of Phase 4 config management**
 
