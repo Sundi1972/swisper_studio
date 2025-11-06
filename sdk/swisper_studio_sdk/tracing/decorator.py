@@ -229,6 +229,25 @@ def traced(
                 if observation_type == "AUTO":
                     final_type = _detect_observation_type(obs_name, has_llm_data, False)
                 
+                # SPECIAL: Create individual tool observations for tool_execution nodes
+                if obs_name == "tool_execution" and final_output and 'tool_results' in final_output:
+                    try:
+                        from .tool_observer import create_tool_observations
+                        
+                        # Create child TOOL observations for each tool in tool_results
+                        tool_count = await create_tool_observations(
+                            trace_id=trace_id,
+                            parent_observation_id=obs_id,
+                            tool_results=final_output['tool_results']
+                        )
+                        
+                        if tool_count > 0:
+                            print(f"  └─ Created {tool_count} tool observations")
+                    
+                    except Exception as e:
+                        # Don't fail if tool observation creation fails
+                        logger.debug(f"Failed to create tool observations: {e}")
+                
                 # REDIS STREAMS: Publish observation end event (1-2ms, non-blocking)
                 await publish_event(
                     event_type="observation_end",

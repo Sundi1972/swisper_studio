@@ -21,6 +21,7 @@ import { ResponseViewer } from './response-viewer';
 import { ToolCallViewer } from './tool-call-viewer';
 import { ToolResponseViewer } from './tool-response-viewer';
 import { IndividualToolsViewer } from './individual-tools-viewer';
+import { ToolDetailViewer } from './tool-detail-viewer';
 
 interface ObservationNode {
   id: string;
@@ -323,40 +324,51 @@ export function ObservationDetailsPanel({ observation }: ObservationDetailsPanel
 
         {isTool && (
           <>
-            {/* Tool Call */}
-            <Box ref={toolCallRef} sx={{ mb: 4 }}>
-              <Typography variant="h6" sx={{ mb: 2 }}>
-                Tool Execution
-              </Typography>
-              <ToolCallViewer input={observation.input} name={observation.name} />
-            </Box>
-
-            <Divider sx={{ my: 3 }} />
-
-            {/* Tool Response - Individual Tools */}
-            <Box ref={toolResponseRef} sx={{ mb: 4 }}>
-              {/* Check if we have tool_results (productivity/research agent format) */}
-              {observation.output?.tool_results ? (
-                <>
-                  <IndividualToolsViewer toolResults={observation.output.tool_results} />
-                  
-                  <Divider sx={{ my: 3 }} />
-                  
-                  {/* Also show full data for reference */}
+            {/* Check if this is an individual tool observation (has tool_name in input) */}
+            {observation.input?.tool_name ? (
+              <>
+                {/* Individual Tool Detail View */}
+                <ToolDetailViewer observation={observation} />
+              </>
+            ) : (
+              <>
+                {/* Legacy tool_execution aggregate view */}
+                {/* Tool Call */}
+                <Box ref={toolCallRef} sx={{ mb: 4 }}>
                   <Typography variant="h6" sx={{ mb: 2 }}>
-                    Full Tool Data (Raw)
+                    Tool Execution
                   </Typography>
-                  <ToolResponseViewer output={observation.output} />
-                </>
-              ) : (
-                <>
-                  <Typography variant="h6" sx={{ mb: 2 }}>
-                    Tool Result
-                  </Typography>
-                  <ToolResponseViewer output={observation.output} />
-                </>
-              )}
-            </Box>
+                  <ToolCallViewer input={observation.input} name={observation.name} />
+                </Box>
+
+                <Divider sx={{ my: 3 }} />
+
+                {/* Tool Response - Individual Tools */}
+                <Box ref={toolResponseRef} sx={{ mb: 4 }}>
+                  {/* Check if we have tool_results (productivity/research agent format) */}
+                  {observation.output?.tool_results ? (
+                    <>
+                      <IndividualToolsViewer toolResults={observation.output.tool_results} />
+                      
+                      <Divider sx={{ my: 3 }} />
+                      
+                      {/* Also show full data for reference */}
+                      <Typography variant="h6" sx={{ mb: 2 }}>
+                        Full Tool Data (Raw)
+                      </Typography>
+                      <ToolResponseViewer output={observation.output} />
+                    </>
+                  ) : (
+                    <>
+                      <Typography variant="h6" sx={{ mb: 2 }}>
+                        Tool Result
+                      </Typography>
+                      <ToolResponseViewer output={observation.output} />
+                    </>
+                  )}
+                </Box>
+              </>
+            )}
           </>
         )}
       </Box>
