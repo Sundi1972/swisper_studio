@@ -1,6 +1,7 @@
 import { SimpleTreeView } from '@mui/x-tree-view/SimpleTreeView';
 import { TreeItem } from '@mui/x-tree-view/TreeItem';
 import { Box, Typography, Chip, Stack } from '@mui/material';
+import { Build as WrenchIcon } from '@mui/icons-material';
 import { getObservationIndicators, getIndicatorTooltip } from '../utils/observation-indicators';
 import {
   PromptIndicator,
@@ -32,13 +33,31 @@ interface ObservationTreeProps {
 }
 
 /**
+ * Map technical type to user-friendly label
+ */
+function getUserFriendlyTypeLabel(type: string): string {
+  switch (type) {
+    case 'GENERATION':
+      return 'LLM';      // User-friendly: LLM call
+    case 'SPAN':
+      return 'PROC';     // User-friendly: Processing
+    case 'TOOL':
+      return 'Tool';     // Keep as-is
+    case 'AGENT':
+      return 'AGENT';    // Keep as-is
+    default:
+      return type;
+  }
+}
+
+/**
  * Observation tree component.
  * 
  * Displays hierarchical observation structure using MUI TreeView.
  * Shows: type, name, indicators, duration, tokens, cost for each observation.
  */
 export function ObservationTree({ nodes, selectedId, onSelect }: ObservationTreeProps) {
-  const renderTree = (node: ObservationNode) => {
+  const renderTree = (node: ObservationNode, depth: number = 0) => {
     // Get indicators for this observation (includes child aggregation)
     const indicators = getObservationIndicators({
       type: node.type,
@@ -49,6 +68,8 @@ export function ObservationTree({ nodes, selectedId, onSelect }: ObservationTree
     });
 
     const isSelected = selectedId === node.id;
+    const isTool = node.type === 'TOOL';
+    const userFriendlyType = getUserFriendlyTypeLabel(node.type);
 
     return (
       <TreeItem
@@ -68,19 +89,25 @@ export function ObservationTree({ nodes, selectedId, onSelect }: ObservationTree
               backgroundColor: isSelected ? 'action.selected' : 'transparent',
               borderRadius: 1,
               px: 1,
+              paddingLeft: depth > 0 ? `${depth * 24}px` : '8px',  // Indent children
               cursor: 'pointer',
               '&:hover': {
                 backgroundColor: isSelected ? 'action.selected' : 'action.hover',
               }
             }}
           >
-            {/* Type badge - smaller */}
+            {/* Tool icon for TOOL type */}
+            {isTool && (
+              <WrenchIcon sx={{ fontSize: 18, color: 'success.main' }} />
+            )}
+            
+            {/* Type badge - user-friendly labels */}
             <Chip
-              label={node.type}
+              label={userFriendlyType}
               size="small"
               color={getTypeColor(node.type)}
               sx={{ 
-                minWidth: 80,
+                minWidth: 60,
                 fontSize: '0.7rem',
                 height: '22px',
               }}
@@ -167,8 +194,9 @@ export function ObservationTree({ nodes, selectedId, onSelect }: ObservationTree
         </Box>
       }
     >
-      {node.children.map((child) => renderTree(child))}
-    </TreeItem>
+        {/* Recursively render children with increased depth */}
+        {node.children.map(child => renderTree(child, depth + 1))}
+      </TreeItem>
     );
   };
 
