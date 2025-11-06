@@ -8,7 +8,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
-import { DataGrid, GridColDef } from '@mui/x-data-grid';
+import { DataGrid, GridColDef, GridToolbar } from '@mui/x-data-grid';
 
 import { useTracesQuery } from '../hooks/use-traces-query';
 
@@ -73,6 +73,15 @@ export function TraceListPage() {
         autoHeight
         disableRowSelectionOnClick={false}
         onRowClick={(params) => navigate(`/projects/${projectId}/tracing/${params.id}`)}
+        slots={{
+          toolbar: GridToolbar,  // Enable search, filter, export toolbar
+        }}
+        slotProps={{
+          toolbar: {
+            showQuickFilter: true,  // Enable search box
+            quickFilterProps: { debounceMs: 500 },
+          },
+        }}
         sx={{
           '& .MuiDataGrid-row': {
             cursor: 'pointer',
