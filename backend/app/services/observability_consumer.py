@@ -370,7 +370,17 @@ class ObservabilityConsumer:
                 observation.prompt_tokens = llm_tokens.get('prompt')
                 observation.completion_tokens = llm_tokens.get('completion')
                 observation.total_tokens = llm_tokens.get('total')
-                logger.debug(f"Extracted tokens: {observation.total_tokens} ({observation.prompt_tokens}↑ {observation.completion_tokens}↓)")
+                
+                # If tokens are None (streaming without usage), estimate from text
+                if observation.total_tokens is None or observation.total_tokens == 0:
+                    estimated = self._estimate_tokens_from_output(output)
+                    if estimated:
+                        observation.prompt_tokens = estimated['prompt']
+                        observation.completion_tokens = estimated['completion']
+                        observation.total_tokens = estimated['total']
+                        logger.debug(f"Estimated tokens (streaming): {observation.total_tokens} ({observation.prompt_tokens}↑ {observation.completion_tokens}↓)")
+                else:
+                    logger.debug(f"Extracted tokens: {observation.total_tokens} ({observation.prompt_tokens}↑ {observation.completion_tokens}↓)")
                 
                 # Extract model name from SDK capture (output._llm_model)
                 model_name = output.get('_llm_model')
@@ -420,6 +430,48 @@ class ObservabilityConsumer:
             logger.debug(f"Updated observation: {observation_id} ({observation.name}) - type: {observation.type}")
         else:
             logger.warning(f"⚠️ Observation not found for update: {observation_id}")
+
+    def _estimate_tokens_from_output(self, output: Dict[str, Any]) -> Dict[str, int] | None:
+        """
+        Estimate tokens when actual counts unavailable (e.g., streaming without usage).
+        
+        Uses industry-standard approximation: ~0.75 tokens per word
+        
+        Returns:
+            dict with prompt, completion, total tokens (estimated)
+            None if can't estimate
+        """
+        try:
+            prompt_tokens = 0
+            completion_tokens = 0
+            
+            # Estimate prompt tokens from _llm_messages
+            if '_llm_messages' in output and isinstance(output['_llm_messages'], list):
+                for msg in output['_llm_messages']:
+                    if isinstance(msg, dict) and 'content' in msg:
+                        # ~0.75 tokens per word (conservative estimate)
+                        word_count = len(str(msg['content']).split())
+                        prompt_tokens += int(word_count * 0.75)
+            
+            # Estimate completion tokens from _llm_result
+            if '_llm_result' in output and output['_llm_result']:
+                result_text = str(output['_llm_result'])
+                word_count = len(result_text.split())
+                completion_tokens = int(word_count * 0.75)
+            
+            # If we got some estimates
+            if prompt_tokens > 0 or completion_tokens > 0:
+                return {
+                    'prompt': prompt_tokens,
+                    'completion': completion_tokens,
+                    'total': prompt_tokens + completion_tokens
+                }
+            
+            return None
+            
+        except Exception as e:
+            logger.debug(f"Token estimation failed: {e}")
+            return None
 
     async def _handle_observation_error(
         self, 
