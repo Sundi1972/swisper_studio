@@ -52,3 +52,20 @@ async def create_db_and_tables() -> None:
 async def close_db_connection() -> None:
     """Close database connection (for application shutdown)"""
     await engine.dispose()
+
+
+def get_async_session_factory():
+    """
+    Get async session factory for services.
+    
+    Returns a callable that creates async context manager for sessions.
+    Used by observability consumer and other background services.
+    """
+    from contextlib import asynccontextmanager
+    
+    @asynccontextmanager
+    async def session_factory():
+        async with async_session() as session:
+            yield session
+    
+    return session_factory

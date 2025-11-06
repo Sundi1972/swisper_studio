@@ -40,6 +40,15 @@ class Settings(BaseSettings):
     # CORS
     CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:5173"]
 
+    # Observability Consumer (Redis Streams)
+    OBSERVABILITY_ENABLED: bool = True
+    OBSERVABILITY_REDIS_URL: str = "redis://172.17.0.1:6379"  # Swisper's Redis from host
+    OBSERVABILITY_STREAM_NAME: str = "observability:events"
+    OBSERVABILITY_GROUP_NAME: str = "swisper_studio_consumers"
+    OBSERVABILITY_CONSUMER_NAME: str = "consumer_1"
+    OBSERVABILITY_BATCH_SIZE: int = 50
+    DEFAULT_PROJECT_ID: str = "0d7aa606-cb29-4a31-8a59-50fa61151a32"  # Fallback for traces
+
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def parse_cors_origins(cls, v: Any) -> list[str] | str:

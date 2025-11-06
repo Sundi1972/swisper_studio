@@ -10,10 +10,12 @@ import copy
 import functools
 import time
 import uuid
+from datetime import datetime
 from typing import TypeVar, Callable
 
 from .client import get_studio_client
 from .context import get_current_trace, get_current_observation, set_current_observation
+from .redis_publisher import publish_event, get_redis_client
 
 T = TypeVar('T')
 
@@ -59,28 +61,43 @@ def _detect_observation_type(
 def traced(
     name: str | None = None,
     observation_type: str = "AUTO",  # AUTO = detect based on LLM data
+    capture_reasoning: bool = True,  # Capture LLM reasoning (<think>...</think>)
+    reasoning_max_length: int | None = None,  # Max reasoning chars (None = use default 50KB)
 ):
     """
-    Auto-trace any function/node.
+    Auto-trace any function/node with optional reasoning capture.
     
     Usage:
-        @traced("my_node")
-        async def my_node(state):
-            # Your logic
+        # Default (captures reasoning if available)
+        @traced("classify_intent")
+        async def classify_intent_node(state):
+            return state
+        
+        # Disable reasoning for this node
+        @traced("memory_node", capture_reasoning=False)
+        async def memory_node(state):
+            return state
+        
+        # Custom reasoning length limit
+        @traced("global_planner", capture_reasoning=True, reasoning_max_length=20000)
+        async def global_planner_node(state):
             return state
     
     Args:
         name: Observation name (defaults to function name)
         observation_type: Type of observation (SPAN, GENERATION, TOOL, AGENT, AUTO)
                          AUTO = Auto-detect based on captured LLM data
+        capture_reasoning: Whether to capture LLM reasoning for this node
+        reasoning_max_length: Max reasoning characters (None = use default 50KB)
     """
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         obs_name = name or func.__name__
 
         @functools.wraps(func)
         async def async_wrapper(*args, **kwargs) -> T:
-            client = get_studio_client()
-            if not client:
+            # Check if Redis publisher is initialized
+            redis_client = get_redis_client()
+            if not redis_client:
                 # Tracing not initialized, just run function
                 if asyncio.iscoroutinefunction(func):
                     return await func(*args, **kwargs)
@@ -126,14 +143,18 @@ def traced(
             # Determine initial type (can't send "AUTO" to API)
             initial_type = "SPAN" if observation_type == "AUTO" else observation_type
             
-            # Create observation in background (non-blocking)
-            client.create_observation_background(
+            # REDIS STREAMS: Publish observation start event (1-2ms, non-blocking)
+            await publish_event(
+                event_type="observation_start",
                 trace_id=trace_id,
-                name=obs_name,
-                type=initial_type,  # Send valid enum value
-                observation_id=obs_id,  # Pre-generated
-                parent_observation_id=parent_obs,
-                input=input_data,
+                observation_id=obs_id,
+                data={
+                    "name": obs_name,
+                    "type": initial_type,
+                    "parent_observation_id": parent_obs,
+                    "input": input_data,
+                    "start_time": datetime.utcnow().isoformat(),
+                }
             )
 
             # Set as current observation immediately (for nested calls)
@@ -180,8 +201,18 @@ def traced(
                     # Add LLM prompt/response data
                     if 'input' in llm_data and llm_data['input'].get('messages'):
                         final_output['_llm_messages'] = llm_data['input']['messages']
+                    
                     if 'output' in llm_data:
                         final_output['_llm_result'] = llm_data['output'].get('result')
+                        
+                        # Add reasoning if enabled and available
+                        if capture_reasoning and llm_data['output'].get('reasoning'):
+                            # Import reasoning function here to apply node-specific max length
+                            from ..wrappers.llm_wrapper import _get_accumulated_reasoning
+                            reasoning_text = _get_accumulated_reasoning(obs_id, reasoning_max_length)
+                            if reasoning_text:
+                                final_output['_llm_reasoning'] = reasoning_text
+                        
                         final_output['_llm_tokens'] = {
                             'total': llm_data['output'].get('total_tokens'),
                             'prompt': llm_data['output'].get('prompt_tokens'),
@@ -190,31 +221,44 @@ def traced(
                 
                 # AUTO-DETECT observation type if set to "AUTO"
                 final_type = observation_type
-                update_type = None
                 
                 if observation_type == "AUTO":
                     final_type = _detect_observation_type(obs_name, has_llm_data, False)
-                    # If type changed from AUTO to something specific, update it
-                    if final_type != "SPAN":  # Only update if we detected something specific
-                        update_type = final_type
                 
-                # FIRE-AND-FORGET: End observation in background (non-blocking)
-                # If LLM data present, update type to GENERATION
-                client.end_observation_background(
+                # REDIS STREAMS: Publish observation end event (1-2ms, non-blocking)
+                await publish_event(
+                    event_type="observation_end",
+                    trace_id=trace_id,
                     observation_id=obs_id,
-                    output=final_output,
-                    level="DEFAULT",
-                    update_type=update_type,  # Will update SPAN → GENERATION if LLM detected
+                    data={
+                        "output": final_output,
+                        "level": "DEFAULT",
+                        "type": final_type,  # Final detected type
+                        "end_time": datetime.utcnow().isoformat(),
+                    }
                 )
+                
+                # Cleanup telemetry to prevent memory leaks
+                try:
+                    from ..wrappers.llm_wrapper import cleanup_observation
+                    cleanup_observation(obs_id)
+                except:
+                    pass
 
                 return result
 
             except Exception as e:
-                # FIRE-AND-FORGET: End observation with error in background
-                client.end_observation_background(
+                # REDIS STREAMS: Publish observation error event
+                await publish_event(
+                    event_type="observation_error",
+                    trace_id=trace_id,
                     observation_id=obs_id,
-                    level="ERROR",
-                    status_message=str(e),
+                    data={
+                        "level": "ERROR",
+                        "error": str(e),
+                        "status_message": str(e),
+                        "end_time": datetime.utcnow().isoformat(),
+                    }
                 )
                 raise
 

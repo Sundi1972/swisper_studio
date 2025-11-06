@@ -40,40 +40,72 @@ def wrap_llm_adapter() -> None:
         # Save original method
         original_get_structured_output = TokenTrackingLLMAdapter.get_structured_output
         
-        # Create wrapper
+        # Create wrapper for get_structured_output
         async def wrapped_get_structured_output(self, messages, schema, agent_type=None, 
-                                               on_reasoning_chunk=None, llm_reasoning_language=None, 
-                                               metadata=None):
+                                              on_reasoning_chunk=None, llm_reasoning_language=None, 
+                                              metadata=None):
             """
             Wrapped get_structured_output that captures LLM telemetry.
             
             Captures:
             - Messages (prompts sent to LLM)
-            - Schema (what we're asking for)
+            - Reasoning chunks (<think>...</think>)
             - Result (LLM response)
             - Tokens (prompt + completion)
             - Agent type (for model identification)
             """
-            # Store telemetry in context BEFORE calling LLM
             obs_id = get_current_observation()
+            
             if obs_id:
-                # We're in a traced observation - capture prompts
+                # Store prompts
                 _store_llm_input({
                     "messages": messages,
                     "agent_type": agent_type,
                     "schema_name": schema.__name__ if schema else None,
                 })
+                
+                # Intercept reasoning chunks if callback provided
+                original_callback = on_reasoning_chunk
+                
+                if original_callback:
+                    async def safe_reasoning_interceptor(chunk: str):
+                        """
+                        Intercept reasoning chunks for SDK capture.
+                        
+                        Safely accumulates reasoning while passing through to
+                        original callback. Never propagates errors to LLM call.
+                        """
+                        try:
+                            # Accumulate for SDK
+                            _accumulate_reasoning(obs_id, chunk)
+                        except Exception as e:
+                            # NEVER break user's LLM call!
+                            logger.debug(f"SDK reasoning capture failed: {e}")
+                        
+                        try:
+                            # Pass through to original callback
+                            await original_callback(chunk)
+                        except Exception as e:
+                            # Log but don't propagate
+                            logger.debug(f"Original reasoning callback failed: {e}")
+                    
+                    # Replace callback with safe interceptor
+                    on_reasoning_chunk = safe_reasoning_interceptor
             
-            # Call original method
+            # Call original method (with intercepted callback)
             result = await original_get_structured_output(
                 self, messages, schema, agent_type, 
                 on_reasoning_chunk, llm_reasoning_language, metadata
             )
             
-            # Store telemetry AFTER getting result
+            # Store output data AFTER LLM call
             if obs_id:
+                # Get accumulated reasoning (if any)
+                reasoning_text = _get_accumulated_reasoning(obs_id)
+                
                 _store_llm_output({
                     "result": result.result.model_dump() if hasattr(result.result, 'model_dump') else str(result.result),
+                    "reasoning": reasoning_text,  # Include reasoning!
                     "total_tokens": result.token_usage,
                     "prompt_tokens": result.prompt_tokens,
                     "completion_tokens": result.completion_tokens,
@@ -81,11 +113,74 @@ def wrap_llm_adapter() -> None:
             
             return result
         
-        # Replace method
+        # Save original streaming method
+        original_stream = TokenTrackingLLMAdapter.stream_message_from_LLM
+        
+        # Create wrapper for stream_message_from_LLM
+        async def wrapped_stream_message_from_LLM(self, messages, agent_type=None, metadata=None):
+            """
+            Wrapped streaming that captures prompts and final aggregated response.
+            
+            Captures:
+            - Messages (prompts)
+            - Streaming response chunks (accumulated)
+            - Tokens (from final chunk)
+            
+            Zero latency - streaming passes through immediately.
+            """
+            obs_id = get_current_observation()
+            
+            if obs_id:
+                # Store prompts
+                _store_llm_input({
+                    "messages": messages,
+                    "agent_type": agent_type,
+                })
+            
+            # Accumulate response chunks and tokens
+            accumulated_tokens = {
+                'total': 0,
+                'prompt': 0,
+                'completion': 0
+            }
+            
+            # Stream through (zero delay!)
+            try:
+                async for chunk in original_stream(self, messages, agent_type, metadata):
+                    # Accumulate response content
+                    if obs_id and isinstance(chunk, dict):
+                        if 'content' in chunk:
+                            _accumulate_response(obs_id, chunk['content'])
+                        
+                        # Capture token info (usually in final chunks)
+                        if 'usage' in chunk:
+                            usage = chunk['usage']
+                            accumulated_tokens['total'] = usage.get('total_tokens', 0)
+                            accumulated_tokens['prompt'] = usage.get('prompt_tokens', 0)
+                            accumulated_tokens['completion'] = usage.get('completion_tokens', 0)
+                    
+                    yield chunk  # ← Pass through immediately (zero latency)
+                
+                # After streaming completes - store final data
+                if obs_id:
+                    final_response = _get_accumulated_response(obs_id)
+                    _store_llm_output({
+                        "result": final_response,  # Full streamed response
+                        "reasoning": None,  # Streaming usually doesn't have <think> tags
+                        **accumulated_tokens
+                    })
+                    
+            except Exception as e:
+                # Let error propagate but log for debugging
+                logger.debug(f"Error during streaming: {e}")
+                raise
+        
+        # Replace both methods
         TokenTrackingLLMAdapter.get_structured_output = wrapped_get_structured_output
+        TokenTrackingLLMAdapter.stream_message_from_LLM = wrapped_stream_message_from_LLM
         _llm_wrapper_active = True
         
-        logger.info("✅ LLM adapter wrapped for prompt capture")
+        logger.info("✅ LLM adapter wrapped for prompt capture (structured + streaming)")
         
     except ImportError as e:
         # Swisper structure different or not running in Swisper context
@@ -99,13 +194,25 @@ def wrap_llm_adapter() -> None:
 # Global storage for LLM telemetry (temporary until observation update)
 _llm_telemetry_store = {}
 
+# Default reasoning configuration
+_default_max_reasoning_length = 50000  # 50 KB default
+
+
+def set_default_reasoning_config(max_length: int = 50000) -> None:
+    """Set global default for reasoning capture"""
+    global _default_max_reasoning_length
+    _default_max_reasoning_length = max_length
+
 
 def _store_llm_input(data: dict) -> None:
     """Store LLM input data in current observation context"""
     obs_id = get_current_observation()
     if obs_id:
         if obs_id not in _llm_telemetry_store:
-            _llm_telemetry_store[obs_id] = {}
+            _llm_telemetry_store[obs_id] = {
+                'reasoning_chunks': [],  # For accumulating reasoning
+                'response_chunks': [],   # For accumulating streaming responses
+            }
         _llm_telemetry_store[obs_id]['input'] = data
 
 
@@ -114,12 +221,81 @@ def _store_llm_output(data: dict) -> None:
     obs_id = get_current_observation()
     if obs_id:
         if obs_id not in _llm_telemetry_store:
-            _llm_telemetry_store[obs_id] = {}
+            _llm_telemetry_store[obs_id] = {
+                'reasoning_chunks': [],
+                'response_chunks': [],
+            }
         _llm_telemetry_store[obs_id]['output'] = data
+
+
+def _accumulate_reasoning(obs_id: str, chunk: str) -> None:
+    """Accumulate reasoning chunk for an observation"""
+    if obs_id in _llm_telemetry_store:
+        _llm_telemetry_store[obs_id]['reasoning_chunks'].append(chunk)
+    else:
+        # Observation might have already ended - ignore late chunks
+        logger.debug(f"Ignoring late reasoning chunk for ended observation {obs_id}")
+
+
+def _get_accumulated_reasoning(obs_id: str, max_length: int = None) -> Optional[str]:
+    """
+    Get accumulated reasoning text with optional truncation.
+    
+    Args:
+        obs_id: Observation ID
+        max_length: Maximum characters (default: 50000)
+    
+    Returns:
+        Full or truncated reasoning text, or None if no reasoning captured
+    """
+    if obs_id not in _llm_telemetry_store:
+        return None
+    
+    chunks = _llm_telemetry_store[obs_id].get('reasoning_chunks', [])
+    if not chunks:
+        return None
+    
+    full_text = ''.join(chunks)
+    
+    # Apply truncation if needed
+    max_len = max_length or _default_max_reasoning_length
+    if len(full_text) > max_len:
+        return (
+            full_text[:max_len] +
+            f"\n\n... [Truncated. Full length: {len(full_text):,} characters]"
+        )
+    
+    return full_text
+
+
+def _accumulate_response(obs_id: str, chunk: str) -> None:
+    """Accumulate streaming response chunk"""
+    if obs_id in _llm_telemetry_store:
+        _llm_telemetry_store[obs_id]['response_chunks'].append(chunk)
+
+
+def _get_accumulated_response(obs_id: str) -> Optional[str]:
+    """Get accumulated streaming response text"""
+    if obs_id not in _llm_telemetry_store:
+        return None
+    
+    chunks = _llm_telemetry_store[obs_id].get('response_chunks', [])
+    return ''.join(chunks) if chunks else None
 
 
 def get_llm_telemetry(obs_id: str) -> Optional[dict]:
     """Get stored LLM telemetry for an observation"""
     return _llm_telemetry_store.get(obs_id)
+
+
+def cleanup_observation(obs_id: str) -> None:
+    """
+    Cleanup LLM telemetry for an observation (prevent memory leaks).
+    
+    Call this after observation is sent to SwisperStudio.
+    """
+    if obs_id in _llm_telemetry_store:
+        del _llm_telemetry_store[obs_id]
+        logger.debug(f"Cleaned up telemetry for observation {obs_id}")
 
 

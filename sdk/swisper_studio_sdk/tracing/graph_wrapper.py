@@ -18,10 +18,12 @@ from langgraph.graph import StateGraph
 import copy
 import functools
 import uuid
+from datetime import datetime
 
 from .decorator import traced
 from .client import get_studio_client
 from .context import set_current_trace, set_current_observation
+from .redis_publisher import publish_event, get_redis_client
 
 TState = TypeVar('TState')
 
@@ -85,10 +87,10 @@ def create_traced_graph(
         
         @functools.wraps(original_ainvoke)
         async def traced_ainvoke(input_state, config=None, **invoke_kwargs):
-            """Create trace before running graph"""
-            client = get_studio_client()
+            """Create trace before running graph (Redis Streams version)"""
+            redis_client = get_redis_client()
             
-            if not client:
+            if not redis_client:
                 # Tracing not initialized, run normally
                 return await original_ainvoke(input_state, config, **invoke_kwargs)
             
@@ -97,29 +99,42 @@ def create_traced_graph(
                 user_id = input_state.get("user_id") if isinstance(input_state, dict) else None
                 session_id = input_state.get("chat_id") or input_state.get("session_id") if isinstance(input_state, dict) else None
                 
-                trace_id = await client.create_trace(
-                    name=trace_name,
-                    user_id=user_id,
-                    session_id=session_id,
+                # Generate trace ID locally
+                trace_id = str(uuid.uuid4())
+                
+                # REDIS STREAMS: Publish trace start event (1-2ms, non-blocking)
+                await publish_event(
+                    event_type="trace_start",
+                    trace_id=trace_id,
+                    data={
+                        "name": trace_name,
+                        "user_id": user_id,
+                        "session_id": session_id,
+                        "timestamp": datetime.utcnow().isoformat(),
+                    }
                 )
                 
                 # Set trace context for observations
                 set_current_trace(trace_id)
                 
-                # FIX: Create parent observation for the graph (Issue #1)
-                # FIRE-AND-FORGET: Generate ID locally, create in background
+                # Create parent observation for the graph (hierarchical structure)
                 parent_obs_id = str(uuid.uuid4())
                 
-                client.create_observation_background(
+                # REDIS STREAMS: Publish observation start event
+                await publish_event(
+                    event_type="observation_start",
                     trace_id=trace_id,
-                    name=trace_name,  # "global_supervisor"
-                    type="AGENT",  # Graph is an agent
-                    observation_id=parent_obs_id,  # Pre-generated
-                    parent_observation_id=None,  # Top level
-                    input=copy.deepcopy(input_state) if isinstance(input_state, dict) else None,
+                    observation_id=parent_obs_id,
+                    data={
+                        "name": trace_name,
+                        "type": "AGENT",  # Graph is an agent
+                        "parent_observation_id": None,  # Top level
+                        "input": copy.deepcopy(input_state) if isinstance(input_state, dict) else None,
+                        "start_time": datetime.utcnow().isoformat(),
+                    }
                 )
                 
-                # Set as current observation immediately (don't wait)
+                # Set as current observation immediately
                 parent_token = set_current_observation(parent_obs_id)
                 
             except Exception as e:
@@ -131,11 +146,16 @@ def create_traced_graph(
             try:
                 result = await original_ainvoke(input_state, config, **invoke_kwargs)
                 
-                # FIRE-AND-FORGET: End parent observation in background
-                client.end_observation_background(
+                # REDIS STREAMS: Publish observation end event
+                await publish_event(
+                    event_type="observation_end",
+                    trace_id=trace_id,
                     observation_id=parent_obs_id,
-                    output=copy.deepcopy(result) if isinstance(result, dict) else None,
-                    level="DEFAULT",
+                    data={
+                        "output": copy.deepcopy(result) if isinstance(result, dict) else None,
+                        "level": "DEFAULT",
+                        "end_time": datetime.utcnow().isoformat(),
+                    }
                 )
                 
                 return result

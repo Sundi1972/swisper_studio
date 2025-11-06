@@ -11,10 +11,12 @@ import {
   SwapHoriz as DiffIcon,
   Chat as PromptIcon,
   Build as ToolIcon,
+  Psychology as ReasoningIcon,
 } from '@mui/icons-material';
 import { useRef } from 'react';
 import { StateDiffViewer } from './state-diff-viewer';
 import { PromptViewer } from './prompt-viewer';
+import { ReasoningViewer } from './reasoning-viewer';
 import { ResponseViewer } from './response-viewer';
 import { ToolCallViewer } from './tool-call-viewer';
 import { ToolResponseViewer } from './tool-response-viewer';
@@ -105,6 +107,7 @@ export function ObservationDetailsPanel({ observation }: ObservationDetailsPanel
   // Refs for scrolling to sections
   const stateDiffRef = useRef<HTMLDivElement>(null);
   const promptRef = useRef<HTMLDivElement>(null);
+  const reasoningRef = useRef<HTMLDivElement>(null);
   const responseRef = useRef<HTMLDivElement>(null);
   const toolCallRef = useRef<HTMLDivElement>(null);
   const toolResponseRef = useRef<HTMLDivElement>(null);
@@ -125,6 +128,10 @@ export function ObservationDetailsPanel({ observation }: ObservationDetailsPanel
 
   const isGeneration = observation.type === 'GENERATION';
   const isTool = observation.type === 'TOOL';
+  
+  // Check if reasoning is available (SDK v0.4.0)
+  const hasReasoning = observation.output?._llm_reasoning && 
+                       typeof observation.output._llm_reasoning === 'string';
 
   return (
     <Paper sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -190,6 +197,16 @@ export function ObservationDetailsPanel({ observation }: ObservationDetailsPanel
               >
                 Prompt
               </Button>
+              {hasReasoning && (
+                <Button
+                  size="small"
+                  startIcon={<ReasoningIcon />}
+                  onClick={() => scrollToSection(reasoningRef)}
+                  sx={{ color: 'warning.main' }}
+                >
+                  Reasoning
+                </Button>
+              )}
               <Button
                 size="small"
                 startIcon={<OutputIcon />}
@@ -259,6 +276,20 @@ export function ObservationDetailsPanel({ observation }: ObservationDetailsPanel
             </Box>
 
             <Divider sx={{ my: 3 }} />
+
+            {/* LLM Reasoning (if available) */}
+            {hasReasoning && (
+              <>
+                <Box ref={reasoningRef} sx={{ mb: 4 }}>
+                  <Typography variant="h6" sx={{ mb: 2 }}>
+                    LLM Thinking Process
+                  </Typography>
+                  <ReasoningViewer output={observation.output} />
+                </Box>
+
+                <Divider sx={{ my: 3 }} />
+              </>
+            )}
 
             {/* LLM Response */}
             <Box ref={responseRef} sx={{ mb: 4 }}>

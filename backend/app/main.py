@@ -2,12 +2,14 @@
 
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
+import asyncio
+import logging
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.core.database import close_db_connection, create_db_and_tables
+from app.core.database import close_db_connection, create_db_and_tables, get_async_session_factory
 from app.api.routes import (
     auth,
     users,
@@ -22,6 +24,8 @@ from app.api.routes import (
 )
 from app.api.deps import APIKey
 
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
@@ -29,9 +33,54 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Startup
     # Note: Database tables are managed by Alembic migrations, not auto-created
     
+    # Start observability consumer (if enabled)
+    consumer = None
+    consumer_task = None
+    
+    if settings.OBSERVABILITY_ENABLED:
+        try:
+            from app.services.observability_consumer import ObservabilityConsumer
+            
+            consumer = ObservabilityConsumer(
+                redis_url=settings.OBSERVABILITY_REDIS_URL,
+                db_session_factory=get_async_session_factory(),
+                stream_name=settings.OBSERVABILITY_STREAM_NAME,
+                group_name=settings.OBSERVABILITY_GROUP_NAME,
+                consumer_name=settings.OBSERVABILITY_CONSUMER_NAME,
+                batch_size=settings.OBSERVABILITY_BATCH_SIZE,
+            )
+            
+            # Start consumer in background task
+            consumer_task = asyncio.create_task(consumer.start())
+            logger.info("✅ Observability consumer started")
+            logger.info(f"   Consuming from: {settings.OBSERVABILITY_REDIS_URL}")
+            logger.info(f"   Stream: {settings.OBSERVABILITY_STREAM_NAME}")
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to start observability consumer: {e}")
+            logger.warning("   Continuing without consumer - events will queue")
+    else:
+        logger.info("ℹ️ Observability consumer disabled (OBSERVABILITY_ENABLED=False)")
+    
     yield
     
     # Shutdown
+    logger.info("Shutting down application...")
+    
+    # Stop observability consumer
+    if consumer:
+        try:
+            await consumer.stop()
+            if consumer_task:
+                consumer_task.cancel()
+                try:
+                    await consumer_task
+                except asyncio.CancelledError:
+                    pass
+            logger.info("✅ Observability consumer stopped")
+        except Exception as e:
+            logger.error(f"⚠️ Error stopping observability consumer: {e}")
+    
     await close_db_connection()
 
 

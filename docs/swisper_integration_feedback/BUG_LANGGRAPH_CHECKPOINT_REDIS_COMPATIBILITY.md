@@ -1,9 +1,9 @@
 # Bug Report: SDK v0.3.2 Dependency Conflict - BLOCKING Production Use
 
-**Date:** 2025-11-06  
-**From:** Swisper Development Team  
-**Severity:** 🔥 **CRITICAL - BLOCKING**  
-**Status:** SDK v0.3.2 has incompatible dependencies - Immediate fix required  
+**Date:** 2025-11-06
+**From:** Swisper Development Team
+**Severity:** 🔥 **CRITICAL - BLOCKING**
+**Status:** SDK v0.3.2 has incompatible dependencies - Immediate fix required
 **Priority:** P0 - Production blocker
 
 ---
@@ -392,9 +392,9 @@ pip install 'langgraph-checkpoint==2.1.2' --force-reinstall
 
 ## 📞 Escalation
 
-**Severity:** P0 - Production Blocker  
-**Impact:** Breaks all users who upgrade to SDK v0.3.2  
-**Users Affected:** Anyone using LangGraph with checkpointing  
+**Severity:** P0 - Production Blocker
+**Impact:** Breaks all users who upgrade to SDK v0.3.2
+**Users Affected:** Anyone using LangGraph with checkpointing
 **Timeline:** Need fix within 24 hours
 
 **Swisper Team Status:**

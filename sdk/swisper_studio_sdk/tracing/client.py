@@ -184,26 +184,50 @@ class SwisperStudioClient:
         status_message: Optional[str],
         update_type: Optional[str] = None,
     ) -> None:
-        """Background task for ending observation"""
-        try:
-            patch_data = {
-                "end_time": datetime.utcnow().isoformat(),
-                "output": output,
-                "level": level,
-                "status_message": status_message,
-            }
-            
-            # NEW: Update type if LLM data was detected
-            if update_type:
-                patch_data["type"] = update_type
-            
-            await self.client.patch(
-                f"/api/v1/observations/{observation_id}",
-                json=patch_data
-            )
-        except Exception as e:
-            # Silent failure - log but don't crash app
-            logger.debug(f"Background observation end failed: {e}")
+        """
+        Background task for ending observation.
+        
+        Includes retry logic to handle race conditions where PATCH arrives
+        before POST has committed to database.
+        """
+        patch_data = {
+            "end_time": datetime.utcnow().isoformat(),
+            "output": output,
+            "level": level,
+            "status_message": status_message,
+        }
+        
+        # Update type if LLM data was detected
+        if update_type:
+            patch_data["type"] = update_type
+        
+        # Retry logic for race condition handling
+        max_retries = 3
+        retry_delays = [0.05, 0.1, 0.2]  # 50ms, 100ms, 200ms
+        
+        for attempt in range(max_retries):
+            try:
+                response = await self.client.patch(
+                    f"/api/v1/observations/{observation_id}",
+                    json=patch_data
+                )
+                response.raise_for_status()
+                return  # Success!
+                
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code == 404 and attempt < max_retries - 1:
+                    # Race condition: observation not yet committed, retry after delay
+                    await asyncio.sleep(retry_delays[attempt])
+                    continue
+                else:
+                    # Not a race condition, or out of retries
+                    logger.debug(f"Background observation end failed: {e}")
+                    return
+                    
+            except Exception as e:
+                # Other errors (network, etc.)
+                logger.debug(f"Background observation end failed: {e}")
+                return
 
 
 def initialize_tracing(
