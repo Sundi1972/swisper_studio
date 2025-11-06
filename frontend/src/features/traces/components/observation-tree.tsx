@@ -215,7 +215,7 @@ export function ObservationTree({ nodes, selectedId, onSelect }: ObservationTree
         },
       }}
     >
-      {nodes.map((node) => renderTree(node))}
+      {nodes.map((node) => renderTree(node, 0))}
     </SimpleTreeView>
   );
 }
