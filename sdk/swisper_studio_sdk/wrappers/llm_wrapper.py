@@ -60,12 +60,13 @@ def wrap_llm_adapter() -> None:
                 # Try to get actual model name from Swisper's config
                 model_name = None
                 try:
-                    # Swisper's adapter has _get_model_config_for_agent_type
-                    if hasattr(self, '_get_model_config_for_agent_type'):
-                        model_config = self._get_model_config_for_agent_type(agent_type)
+                    # TokenTrackingLLMAdapter wraps the actual adapter
+                    # Access wrapped_adapter to get model config
+                    if hasattr(self, 'wrapped_adapter') and hasattr(self.wrapped_adapter, '_get_model_config_for_agent_type'):
+                        model_config = self.wrapped_adapter._get_model_config_for_agent_type(agent_type)
                         model_name = model_config.get('model') if model_config else None
-                except:
-                    pass
+                except Exception as e:
+                    logger.debug(f"Could not get model name: {e}")
                 
                 # Store prompts + model info
                 _store_llm_input({
@@ -151,11 +152,12 @@ def wrap_llm_adapter() -> None:
                 # Try to get model name
                 model_name = None
                 try:
-                    if hasattr(self, '_get_model_config_for_agent_type'):
-                        model_config = self._get_model_config_for_agent_type(agent_type)
+                    # Access wrapped_adapter to get model config
+                    if hasattr(self, 'wrapped_adapter') and hasattr(self.wrapped_adapter, '_get_model_config_for_agent_type'):
+                        model_config = self.wrapped_adapter._get_model_config_for_agent_type(agent_type)
                         model_name = model_config.get('model') if model_config else None
-                except:
-                    pass
+                except Exception as e:
+                    logger.debug(f"Could not get model name: {e}")
                 
                 # Store prompts
                 _store_llm_input({

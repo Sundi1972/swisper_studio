@@ -33,20 +33,34 @@ def extract_provider_from_model(model: str) -> str:
     Extract hosting provider from model name.
     
     Common patterns:
-    - *azure* → azure (check first - takes precedence)
+    - inference-* → kvant (Swisper's KVANT models)
+    - *azure* → azure (check before gpt- prefix)
     - gpt-* → openai
     - claude-* → anthropic
+    - meta-llama/* → kvant (Meta models on KVANT)
+    - deepseek-ai/* → kvant (DeepSeek models on KVANT)
     
     Args:
-        model: Model name (e.g., "gpt-4-turbo", "claude-3-opus", "azure-gpt-4")
+        model: Model name (e.g., "gpt-4-turbo", "inference-llama4-maverick")
     
     Returns:
-        Provider name (e.g., "openai", "anthropic", "azure", "unknown")
+        Provider name (e.g., "openai", "anthropic", "kvant", "unknown")
     """
     model_lower = model.lower()
     
-    # Check azure first (before checking for gpt- prefix)
-    if "azure" in model_lower:
+    # Check KVANT models first (Swisper's primary provider)
+    if model_lower.startswith("inference-"):
+        return "kvant"
+    elif model_lower.startswith("meta-llama/") or model_lower.startswith("deepseek-ai/"):
+        return "kvant"
+    elif model_lower.startswith("qwen/") or model_lower.startswith("baai/"):
+        return "kvant"
+    elif model_lower.startswith("ibm-granite/") or model_lower.startswith("google/"):
+        return "kvant"
+    elif model_lower.startswith("swiss-ai/") or model_lower.startswith("mistralai/"):
+        return "kvant"
+    # Check azure before gpt- (azure-gpt-4)
+    elif "azure" in model_lower:
         return "azure"
     elif model_lower.startswith("gpt-") or model_lower.startswith("text-") or model_lower.startswith("davinci"):
         return "openai"
