@@ -123,11 +123,14 @@ def traced(
             # FIRE-AND-FORGET: Generate observation ID locally (no waiting)
             obs_id = str(uuid.uuid4())
             
+            # Determine initial type (can't send "AUTO" to API)
+            initial_type = "SPAN" if observation_type == "AUTO" else observation_type
+            
             # Create observation in background (non-blocking)
             client.create_observation_background(
                 trace_id=trace_id,
                 name=obs_name,
-                type=observation_type,
+                type=initial_type,  # Send valid enum value
                 observation_id=obs_id,  # Pre-generated
                 parent_observation_id=parent_obs,
                 input=input_data,
