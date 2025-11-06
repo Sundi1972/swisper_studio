@@ -33,7 +33,7 @@ from swisper_studio_sdk.tracing.client import initialize_tracing  # Deprecated, 
 from swisper_studio_sdk.tracing.redis_publisher import initialize_redis_publisher, close_redis_publisher
 from swisper_studio_sdk.wrappers import wrap_llm_adapter, wrap_tools
 
-__version__ = "0.4.0"  # Phase 5.2: Redis Streams + LLM Reasoning + Connection Status
+__version__ = "0.4.1"  # Phase 5.2: Fix nested agent traces + tool data display
 
 __all__ = [
     "traced",
