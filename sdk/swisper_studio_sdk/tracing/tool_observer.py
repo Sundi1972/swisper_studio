@@ -40,6 +40,12 @@ def extract_tools_from_output(output: Dict[str, Any]) -> List[ToolCall]:
     Auto-detects tools by pattern matching. No agent-specific code needed!
     New agents automatically work if they follow common patterns.
     
+    Priority Order (v0.5.0 Tool Format Standardization):
+    1. _tools_executed (NEW STANDARD - recommended for all agents)
+    2. tool_results (productivity_agent - backwards compat)
+    3. tool_execution_results_history (research_agent - backwards compat)
+    4. Generic fallback (duck typing)
+    
     Args:
         output: Observation output dict (any agent)
     
@@ -48,30 +54,32 @@ def extract_tools_from_output(output: Dict[str, Any]) -> List[ToolCall]:
     """
     tools = []
     
-    # Pattern 1: tool_results (productivity_agent format)
+    # Priority 1: _tools_executed (STANDARD FORMAT - v0.5.0)
+    if '_tools_executed' in output:
+        tools.extend(_extract_from_tools_executed(output['_tools_executed']))
+        logger.debug(f"Extracted {len(tools)} tools from STANDARD format (_tools_executed)")
+        return tools  # Stop here if found (highest priority)
+    
+    # Priority 2: tool_results (productivity_agent format - backwards compat)
     if 'tool_results' in output and isinstance(output['tool_results'], dict):
         tools.extend(_extract_from_tool_results(output['tool_results']))
-        logger.debug(f"Extracted {len(tools)} tools from tool_results format")
+        logger.debug(f"Extracted {len(tools)} tools from tool_results format (backwards compat)")
+        return tools  # Stop here if found
     
-    # Pattern 2: tool_execution_results_history (research_agent format)
-    elif 'tool_execution_results_history' in output:
+    # Priority 3: tool_execution_results_history (research_agent format - backwards compat)
+    if 'tool_execution_results_history' in output:
         history = output['tool_execution_results_history']
         tools.extend(_extract_from_execution_history(history))
-        logger.debug(f"Extracted {len(tools)} tools from execution_history format")
+        logger.debug(f"Extracted {len(tools)} tools from execution_history format (backwards compat)")
+        return tools  # Stop here if found
     
-    # Pattern 3: _tools_executed (future standard format)
-    elif '_tools_executed' in output:
-        tools.extend(_extract_from_tools_executed(output['_tools_executed']))
-        logger.debug(f"Extracted {len(tools)} tools from standard format")
-    
-    # Pattern 4: Generic fallback (scan for tool-like structures)
-    else:
-        for key, value in output.items():
-            if 'tool' in key.lower() and isinstance(value, (list, dict)):
-                found = _extract_from_generic_structure(value)
-                if found:
-                    tools.extend(found)
-                    logger.debug(f"Extracted {len(found)} tools from generic pattern: {key}")
+    # Priority 4: Generic fallback (scan for tool-like structures)
+    for key, value in output.items():
+        if 'tool' in key.lower() and isinstance(value, (list, dict)):
+            found = _extract_from_generic_structure(value)
+            if found:
+                tools.extend(found)
+                logger.debug(f"Extracted {len(found)} tools from generic pattern: {key}")
     
     return tools
 
@@ -136,20 +144,52 @@ def _extract_from_execution_history(history: Any) -> List[ToolCall]:
 
 
 def _extract_from_tools_executed(tools_data: Any) -> List[ToolCall]:
-    """Extract from future standard format"""
+    """
+    Extract from standard format (_tools_executed).
+    
+    STANDARD FORMAT (v0.5.0):
+    [
+      {
+        "tool_name": str (required),
+        "parameters": dict (required, can be empty),
+        "result": Any (required, can be None),
+        "error": None | dict (required),
+        "status": "success" | "failure" (required),
+        "batch_key": str (optional),
+        "timestamp": str (optional),
+        "duration_ms": int (optional),
+        "metadata": dict (optional)
+      }
+    ]
+    
+    Validation: LENIENT (use defaults for missing required fields)
+    """
     tools = []
     
-    if isinstance(tools_data, list):
-        for tool in tools_data:
-            if isinstance(tool, dict):
-                tools.append(ToolCall(
-                    name=tool.get('name', tool.get('tool_name', 'unknown')),
-                    parameters=tool.get('parameters', {}),
-                    result=tool.get('result'),
-                    error=tool.get('error'),
-                    status=tool.get('status', 'success'),
-                    batch_key=tool.get('batch_key', '')
-                ))
+    if not isinstance(tools_data, list):
+        logger.warning(f"_tools_executed is not a list: {type(tools_data).__name__}")
+        return tools
+    
+    for idx, tool in enumerate(tools_data):
+        if not isinstance(tool, dict):
+            logger.warning(f"_tools_executed[{idx}] is not a dict: {type(tool).__name__}")
+            continue
+        
+        # Validate required field: tool_name
+        tool_name = tool.get('name') or tool.get('tool_name')
+        if not tool_name:
+            logger.warning(f"_tools_executed[{idx}] missing tool_name, skipping")
+            continue
+        
+        # Extract with defaults (lenient validation)
+        tools.append(ToolCall(
+            name=tool_name,
+            parameters=tool.get('parameters', {}),
+            result=tool.get('result'),
+            error=tool.get('error'),
+            status=tool.get('status', 'success'),  # Default to success
+            batch_key=tool.get('batch_key', '')
+        ))
     
     return tools
 

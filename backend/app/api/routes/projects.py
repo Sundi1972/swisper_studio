@@ -91,6 +91,7 @@ class ProjectResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     deleted_at: datetime | None
+    tracing_enabled: bool  # Q2: Tracing toggle
     
     # Note: swisper_url and api_key moved to ProjectEnvironment
     # Use GET /projects/{id}/environments to get environment details
@@ -314,4 +315,69 @@ async def delete_project(
     project.deleted_at = datetime.utcnow()
     
     await session.commit()
+
+
+class TracingToggleRequest(BaseModel):
+    """Request model for toggling tracing"""
+    tracing_enabled: bool = Field(..., description="Enable or disable tracing")
+    
+    model_config = {"extra": "forbid"}
+
+
+class TracingToggleResponse(BaseModel):
+    """Response model for tracing toggle"""
+    status: str
+    tracing_enabled: bool
+    message: str
+
+
+@router.patch("/projects/{project_id}/tracing", response_model=TracingToggleResponse)
+async def update_project_tracing(
+    project_id: str,
+    data: TracingToggleRequest,
+    session: DBSession,
+    auth: Auth,  # Accept JWT or API key
+) -> dict[str, Any]:
+    """
+    Enable/disable tracing for a project (Q2: Tracing Toggle).
+    
+    Updates database and invalidates cache for instant effect.
+    SDK checks cache before creating traces (per-request).
+    
+    Performance:
+    - Cache invalidation: <1ms
+    - Takes effect: Within 5 minutes (cache TTL) or immediately on cache miss
+    
+    Security:
+    - Requires authentication (JWT or API key)
+    - Only affects specified project
+    """
+    stmt = select(Project).where(
+        Project.id == project_id,
+        Project.deleted_at.is_(None)
+    )
+    result = await session.execute(stmt)
+    project = result.scalar_one_or_none()
+    
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project {project_id} not found"
+        )
+    
+    # Update database
+    project.tracing_enabled = data.tracing_enabled
+    project.updated_at = datetime.utcnow()
+    
+    await session.commit()
+    
+    # Update cache immediately (INSTANT effect - no 5 min wait!)
+    from app.services.tracing_config_service import invalidate_tracing_cache
+    await invalidate_tracing_cache(project_id, data.tracing_enabled)
+    
+    return {
+        "status": "ok",
+        "tracing_enabled": project.tracing_enabled,
+        "message": f"Tracing {'enabled' if project.tracing_enabled else 'disabled'} for project (immediate effect)"
+    }
 

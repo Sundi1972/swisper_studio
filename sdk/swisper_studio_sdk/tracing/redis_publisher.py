@@ -236,6 +236,61 @@ async def publish_event(
         pass
 
 
+async def is_tracing_enabled_for_project(project_id: str) -> bool:
+    """
+    Check if tracing is enabled for this project (Q2: Tracing Toggle).
+    
+    Uses Redis cache for speed (1-2ms).
+    Cache is managed by SwisperStudio backend.
+    
+    Performance:
+    - Cache hit: ~1ms (Redis GET)
+    - Cache miss: Defaults to enabled (fail-open)
+    - Cache TTL: 5 minutes (set by backend)
+    
+    Args:
+        project_id: Project UUID
+        
+    Returns:
+        True if tracing enabled (or if unable to check), False if disabled
+        
+    Behavior:
+    - Cache value "true" → enabled
+    - Cache value "false" → disabled
+    - Cache miss (None) → enabled (fail-open)
+    - Redis error → enabled (fail-open)
+    
+    This is called on every graph invocation (per-request check).
+    """
+    client = get_redis_client()
+    if not client:
+        # Tracing not initialized, default to enabled
+        return True
+    
+    cache_key = f"tracing:{project_id}:enabled"
+    
+    try:
+        cached = await client.get(cache_key)
+        
+        # Cached value
+        if cached == b"true":
+            logger.debug(f"Tracing enabled for project {project_id[:8]}...")
+            return True
+        elif cached == b"false":
+            logger.debug(f"Tracing disabled for project {project_id[:8]}...")
+            return False
+        
+        # Cache miss - default to enabled (fail-open)
+        # Backend will populate cache when project settings are accessed
+        logger.debug(f"Cache miss for project {project_id[:8]}..., defaulting to enabled")
+        return True
+    
+    except Exception as e:
+        # Redis error - default to enabled (fail-open)
+        logger.debug(f"Redis error checking tracing status: {e}, defaulting to enabled")
+        return True
+
+
 async def close_redis_publisher() -> None:
     """
     Close Redis connection gracefully.

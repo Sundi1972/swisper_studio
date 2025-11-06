@@ -261,3 +261,92 @@ async def get_trace_graph(
     graph = graph_builder_service.build_trace_graph(list(observations))
     
     return graph
+
+
+@router.delete("/traces/{trace_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_trace(
+    trace_id: str,
+    session: DBSession,
+    auth: Auth,  # Accept JWT or API key
+) -> None:
+    """
+    Delete a trace and all its observations.
+    
+    Cascading delete:
+    - Deletes all observations for this trace (FK cascade)
+    - Deletes the trace itself
+    
+    Returns 204 No Content on success.
+    """
+    # Verify trace exists
+    stmt = select(Trace).where(Trace.id == trace_id)
+    result = await session.execute(stmt)
+    trace = result.scalar_one_or_none()
+    
+    if not trace:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Trace {trace_id} not found"
+        )
+    
+    # Delete observations first (FK constraint)
+    from sqlalchemy import delete as sql_delete
+    await session.execute(
+        sql_delete(Observation).where(Observation.trace_id == trace_id)
+    )
+    
+    # Delete trace
+    await session.execute(
+        sql_delete(Trace).where(Trace.id == trace_id)
+    )
+    
+    await session.commit()
+
+
+@router.delete("/traces", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_all_traces(
+    project_id: str = Query(..., description="Project ID to delete traces for"),
+    session: DBSession = None,
+    auth: Auth = None,  # Accept JWT or API key
+) -> None:
+    """
+    Delete ALL traces for a project.
+    
+    WARNING: This deletes all traces and observations for the specified project.
+    Use with caution!
+    
+    Returns 204 No Content on success.
+    """
+    # Verify project exists
+    project_stmt = select(Project).where(
+        Project.id == project_id,
+        Project.deleted_at.is_(None)
+    )
+    project = await session.scalar(project_stmt)
+    
+    if not project:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Project {project_id} not found"
+        )
+    
+    # Get all trace IDs for this project
+    trace_ids_stmt = select(Trace.id).where(Trace.project_id == project_id)
+    result = await session.execute(trace_ids_stmt)
+    trace_ids = [row[0] for row in result.fetchall()]
+    
+    if trace_ids:
+        # Delete all observations for these traces (FK constraint)
+        from sqlalchemy import delete as sql_delete
+        await session.execute(
+            sql_delete(Observation).where(Observation.trace_id.in_(trace_ids))
+        )
+        
+        # Delete all traces for this project
+        await session.execute(
+            sql_delete(Trace).where(Trace.project_id == project_id)
+        )
+        
+        await session.commit()
+    
+    # If no traces, just return success

@@ -33,6 +33,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Startup
     # Note: Database tables are managed by Alembic migrations, not auto-created
     
+    # Initialize tracing config cache (Q2: Tracing Toggle)
+    if settings.OBSERVABILITY_ENABLED:
+        try:
+            from app.services.tracing_config_service import init_tracing_cache
+            await init_tracing_cache()
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to initialize tracing cache: {e}")
+            logger.warning("   Tracing config will fallback to database queries")
+    
     # Start observability consumer (if enabled)
     consumer = None
     consumer_task = None
@@ -80,6 +89,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             logger.info("✅ Observability consumer stopped")
         except Exception as e:
             logger.error(f"⚠️ Error stopping observability consumer: {e}")
+    
+    # Close tracing config cache
+    if settings.OBSERVABILITY_ENABLED:
+        try:
+            from app.services.tracing_config_service import close_tracing_cache
+            await close_tracing_cache()
+        except Exception as e:
+            logger.warning(f"⚠️ Error closing tracing cache: {e}")
     
     await close_db_connection()
 

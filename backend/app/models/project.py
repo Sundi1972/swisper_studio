@@ -87,8 +87,15 @@ class Project(SQLModel, table=True):
         description="When the project was soft-deleted (null if active)"
     )
     
+    # Tracing control (Q2 feature)
+    tracing_enabled: bool = Field(
+        default=True,
+        description="Whether tracing is enabled for this project (default: true)"
+    )
+    
     __table_args__ = (
         Index("ix_projects_created_at", "created_at"),
         Index("ix_projects_deleted_at", "deleted_at"),
+        Index("ix_projects_tracing_enabled", "tracing_enabled"),
     )
 

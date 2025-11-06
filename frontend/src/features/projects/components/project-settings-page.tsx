@@ -21,6 +21,9 @@ import {
   Stack,
   Tabs,
   Tab,
+  Switch,
+  FormControlLabel,
+  Divider,
 } from '@mui/material';
 import {
   ContentCopy as CopyIcon,
@@ -116,6 +119,16 @@ export function ProjectSettingsPage() {
     },
   });
 
+  // Update tracing toggle mutation (Q2: Tracing Toggle)
+  const updateTracingMutation = useMutation({
+    mutationFn: (enabled: boolean) => 
+      apiClient.patch(`/projects/${projectId}/tracing`, { tracing_enabled: enabled }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+    },
+  });
+
   const handleCopy = async (text: string, fieldName: string) => {
     await navigator.clipboard.writeText(text);
     setCopiedField(fieldName);
@@ -155,16 +168,17 @@ export function ProjectSettingsPage() {
         Project Settings
       </Typography>
 
-      {(updateProjectMutation.isSuccess || updateEnvMutation.isSuccess) && (
+      {(updateProjectMutation.isSuccess || updateEnvMutation.isSuccess || updateTracingMutation.isSuccess) && (
         <Alert severity="success" sx={{ mb: 2 }} onClose={() => { 
           updateProjectMutation.reset(); 
-          updateEnvMutation.reset(); 
+          updateEnvMutation.reset();
+          updateTracingMutation.reset();
         }}>
           Settings updated successfully!
         </Alert>
       )}
 
-      {(updateProjectMutation.isError || updateEnvMutation.isError) && (
+      {(updateProjectMutation.isError || updateEnvMutation.isError || updateTracingMutation.isError) && (
         <Alert severity="error" sx={{ mb: 2 }}>
           Failed to update settings. Please try again.
         </Alert>
@@ -239,6 +253,40 @@ export function ProjectSettingsPage() {
             >
               {updateProjectMutation.isPending ? 'Saving...' : 'Save Changes'}
             </Button>
+
+            <Divider sx={{ my: 3 }} />
+
+            {/* Q2: Tracing Toggle */}
+            <Typography variant="h6" gutterBottom>
+              🔍 Observability Settings
+            </Typography>
+            
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={(project as any)?.tracing_enabled ?? true}
+                  onChange={(e) => updateTracingMutation.mutate(e.target.checked)}
+                  disabled={updateTracingMutation.isPending}
+                />
+              }
+              label="Enable Tracing"
+            />
+            
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ ml: 4, mt: 1 }}>
+              {(project as any)?.tracing_enabled 
+                ? '✅ Traces are being collected from Swisper and displayed in SwisperStudio.'
+                : '⏸️ Tracing is disabled. No new traces will be collected until re-enabled.'}
+            </Typography>
+            
+            <Alert severity="info" sx={{ mt: 2 }}>
+              <Typography variant="body2">
+                <strong>How it works:</strong><br />
+                • Changes take effect <strong>immediately</strong> (instant cache update)<br />
+                • Existing traces are preserved<br />
+                • No Swisper restart required<br />
+                • Performance impact: ~1-2ms per request
+              </Typography>
+            </Alert>
           </Stack>
         </Paper>
       </TabPanel>

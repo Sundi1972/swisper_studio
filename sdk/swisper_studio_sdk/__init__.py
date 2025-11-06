@@ -3,6 +3,14 @@ SwisperStudio SDK
 
 Simple integration for tracing Swisper LangGraph applications.
 
+v0.5.0 - Q2 Tracing Toggle + Tool Observations:
+- Dynamic tracing toggle (on/off per project)
+- Universal tool observation extraction (no decorators!)
+- Redis-cached toggle checks (<2ms overhead)
+- Full cost tracking (316 models, CHF for KVANT)
+- LLM reasoning capture
+- 50x faster than HTTP (10ms overhead)
+
 v0.4.0 - Redis Streams Architecture:
 - 50x faster (500ms → 10ms overhead)
 - LLM reasoning capture
@@ -33,7 +41,7 @@ from swisper_studio_sdk.tracing.client import initialize_tracing  # Deprecated, 
 from swisper_studio_sdk.tracing.redis_publisher import initialize_redis_publisher, close_redis_publisher
 from swisper_studio_sdk.wrappers import wrap_llm_adapter, wrap_tools
 
-__version__ = "0.4.1"  # Phase 5.2: Fix nested agent traces + tool data display
+__version__ = "0.5.0"  # Q2: Tracing toggle + universal tool observations
 
 __all__ = [
     "traced",

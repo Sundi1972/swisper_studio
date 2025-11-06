@@ -23,7 +23,7 @@ from datetime import datetime
 from .decorator import traced
 from .client import get_studio_client
 from .context import set_current_trace, set_current_observation, get_current_trace, get_current_observation
-from .redis_publisher import publish_event, get_redis_client
+from .redis_publisher import publish_event, get_redis_client, is_tracing_enabled_for_project, get_project_id
 
 TState = TypeVar('TState')
 
@@ -93,12 +93,23 @@ def create_traced_graph(
             Context-aware:
             - If already in a trace context (nested agent), reuse existing trace
             - If not in trace context (top-level), create new trace
+            
+            Q2: Per-request tracing toggle check (1-2ms overhead)
             """
             redis_client = get_redis_client()
 
             if not redis_client:
                 # Tracing not initialized, run normally
                 return await original_ainvoke(input_state, config, **invoke_kwargs)
+            
+            # Q2: Check if tracing is enabled for this project (per-request check)
+            project_id = get_project_id()
+            if project_id:
+                tracing_enabled = await is_tracing_enabled_for_project(project_id)
+                if not tracing_enabled:
+                    logger.info(f"⏸️ Tracing disabled for project {project_id[:8]}..., skipping trace creation")
+                    # Run graph without tracing
+                    return await original_ainvoke(input_state, config, **invoke_kwargs)
 
             # Check if we're already in a trace context (nested agent call)
             existing_trace_id = get_current_trace()

@@ -1,7 +1,7 @@
 [project]
 name = "swisper-studio-sdk"
-version = "0.4.1"
-description = "SwisperStudio SDK - Tracing integration for Swisper"
+version = "0.5.0"
+description = "SwisperStudio SDK - Tracing integration for Swisper (Q2: Tracing Toggle + Tool Observations)"
 authors = [{name = "SwisperStudio Team"}]
 readme = "README.md"
 requires-python = ">=3.11"
