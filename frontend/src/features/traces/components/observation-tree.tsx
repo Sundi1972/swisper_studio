@@ -51,10 +51,39 @@ function getUserFriendlyTypeLabel(type: string): string {
 }
 
 /**
+ * Calculate aggregated metrics (tokens, costs) from node and all descendants
+ */
+function calculateAggregatedMetrics(node: ObservationNode): {
+  totalTokens: number;
+  totalCost: number;
+  promptTokens: number;
+  completionTokens: number;
+} {
+  let totalTokens = node.total_tokens || 0;
+  let promptTokens = node.prompt_tokens || 0;
+  let completionTokens = node.completion_tokens || 0;
+  let totalCost = node.calculated_total_cost ? parseFloat(String(node.calculated_total_cost)) : 0;
+  
+  // Recursively add children
+  if (node.children && node.children.length > 0) {
+    for (const child of node.children) {
+      const childMetrics = calculateAggregatedMetrics(child);
+      totalTokens += childMetrics.totalTokens;
+      promptTokens += childMetrics.promptTokens;
+      completionTokens += childMetrics.completionTokens;
+      totalCost += childMetrics.totalCost;
+    }
+  }
+  
+  return { totalTokens, totalCost, promptTokens, completionTokens };
+}
+
+/**
  * Observation tree component.
  * 
  * Displays hierarchical observation structure using MUI TreeView.
  * Shows: type, name, indicators, duration, tokens, cost for each observation.
+ * For parent nodes (AGENT), shows aggregated tokens/costs from all children.
  */
 export function ObservationTree({ nodes, selectedId, onSelect }: ObservationTreeProps) {
   const renderTree = (node: ObservationNode, depth: number = 0) => {
@@ -69,7 +98,16 @@ export function ObservationTree({ nodes, selectedId, onSelect }: ObservationTree
 
     const isSelected = selectedId === node.id;
     const isTool = node.type === 'TOOL';
+    const isAgent = node.type === 'AGENT';
     const userFriendlyType = getUserFriendlyTypeLabel(node.type);
+    
+    // For AGENT nodes, show aggregated metrics from all children
+    const metrics = isAgent ? calculateAggregatedMetrics(node) : {
+      totalTokens: node.total_tokens || 0,
+      totalCost: node.calculated_total_cost ? parseFloat(String(node.calculated_total_cost)) : 0,
+      promptTokens: node.prompt_tokens || 0,
+      completionTokens: node.completion_tokens || 0,
+    };
 
     return (
       <TreeItem
@@ -163,23 +201,31 @@ export function ObservationTree({ nodes, selectedId, onSelect }: ObservationTree
               />
             )}
             
-            {node.prompt_tokens !== null && node.completion_tokens !== null && (
+            {/* Tokens (aggregated for AGENT nodes) */}
+            {metrics.totalTokens > 0 && (
               <Chip
-                label={`🎫 ${node.prompt_tokens + node.completion_tokens} (${node.prompt_tokens}↑ ${node.completion_tokens}↓)`}
+                label={`🎫 ${metrics.totalTokens.toLocaleString()} (${metrics.promptTokens.toLocaleString()}↑ ${metrics.completionTokens.toLocaleString()}↓)`}
                 size="small"
                 variant="outlined"
-                title={`Input: ${node.prompt_tokens} tokens, Output: ${node.completion_tokens} tokens`}
+                title={isAgent ? 
+                  `Total tokens (this agent + all children): ${metrics.totalTokens.toLocaleString()}` :
+                  `Input: ${metrics.promptTokens} tokens, Output: ${metrics.completionTokens} tokens`
+                }
                 sx={{ fontSize: '0.7rem', height: '22px' }}
               />
             )}
             
-            {node.calculated_total_cost && parseFloat(node.calculated_total_cost) > 0 && (
+            {/* Costs (aggregated for AGENT nodes) */}
+            {metrics.totalCost > 0 && (
               <Chip
-                label={`💰 $${parseFloat(node.calculated_total_cost).toFixed(4)}`}
+                label={`💰 CHF ${metrics.totalCost.toFixed(4)}`}
                 size="small"
                 color="warning"
                 variant="outlined"
-                title="Total cost for this LLM call"
+                title={isAgent ?
+                  `Total cost (this agent + all children): CHF ${metrics.totalCost.toFixed(6)}` :
+                  `Cost for this LLM call`
+                }
                 sx={{ fontSize: '0.7rem', height: '22px' }}
               />
             )}

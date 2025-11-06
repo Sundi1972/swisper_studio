@@ -154,20 +154,31 @@ def create_traced_graph(
             else:
                 # TOP-LEVEL AGENT: Create new trace
                 print(f"📍 Top-level agent '{trace_name}', creating new trace...")
-
+                
                 try:
                     user_id = input_state.get("user_id") if isinstance(input_state, dict) else None
                     session_id = input_state.get("chat_id") or input_state.get("session_id") if isinstance(input_state, dict) else None
-
+                    
+                    # Extract first sentence of user message for meaningful trace name
+                    trace_display_name = trace_name  # Default
+                    if isinstance(input_state, dict):
+                        user_message = input_state.get("user_message") or input_state.get("message")
+                        if user_message and isinstance(user_message, str):
+                            # Get first sentence (up to 100 chars)
+                            first_sentence = user_message.split('.')[0].split('?')[0].split('!')[0]
+                            if len(first_sentence) > 100:
+                                first_sentence = first_sentence[:97] + "..."
+                            trace_display_name = first_sentence.strip() or trace_name
+                    
                     # Generate trace ID locally
                     trace_id = str(uuid.uuid4())
-
+                    
                     # REDIS STREAMS: Publish trace start event (1-2ms, non-blocking)
                     await publish_event(
                         event_type="trace_start",
                         trace_id=trace_id,
                         data={
-                            "name": trace_name,
+                            "name": trace_display_name,  # Use first sentence as name!
                             "user_id": user_id,
                             "session_id": session_id,
                             "timestamp": datetime.utcnow().isoformat(),
