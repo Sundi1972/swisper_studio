@@ -168,9 +168,9 @@ def wrap_llm_adapter() -> None:
             
             # Accumulate response chunks and tokens
             accumulated_tokens = {
-                'total': 0,
-                'prompt': 0,
-                'completion': 0
+                'total_tokens': 0,
+                'prompt_tokens': 0,
+                'completion_tokens': 0
             }
             
             # Stream through (zero delay!)
@@ -182,11 +182,15 @@ def wrap_llm_adapter() -> None:
                             _accumulate_response(obs_id, chunk['content'])
                         
                         # Capture token info (usually in final chunks)
+                        # Swisper's TokenTrackingLLMAdapter passes through usage from chunks
                         if 'usage' in chunk:
                             usage = chunk['usage']
-                            accumulated_tokens['total'] = usage.get('total_tokens', 0)
-                            accumulated_tokens['prompt'] = usage.get('prompt_tokens', 0)
-                            accumulated_tokens['completion'] = usage.get('completion_tokens', 0)
+                            if 'total_tokens' in usage:
+                                accumulated_tokens['total_tokens'] = usage.get('total_tokens', 0)
+                            if 'prompt_tokens' in usage:
+                                accumulated_tokens['prompt_tokens'] = usage.get('prompt_tokens', 0)
+                            if 'completion_tokens' in usage:
+                                accumulated_tokens['completion_tokens'] = usage.get('completion_tokens', 0)
                     
                     yield chunk  # ← Pass through immediately (zero latency)
                 
@@ -199,11 +203,25 @@ def wrap_llm_adapter() -> None:
                     if obs_id in _llm_telemetry_store and 'input' in _llm_telemetry_store[obs_id]:
                         model_name = _llm_telemetry_store[obs_id]['input'].get('model')
                     
+                    # Only store tokens if we actually got them (don't store 0 as None)
+                    token_data = {}
+                    if accumulated_tokens['total_tokens'] > 0:
+                        token_data['total_tokens'] = accumulated_tokens['total_tokens']
+                        token_data['prompt_tokens'] = accumulated_tokens['prompt_tokens']
+                        token_data['completion_tokens'] = accumulated_tokens['completion_tokens']
+                    else:
+                        # No tokens captured from streaming - log warning
+                        logger.debug(f"No token usage captured from streaming (agent_type={agent_type})")
+                        # Store None explicitly so we know streaming was attempted
+                        token_data['total_tokens'] = None
+                        token_data['prompt_tokens'] = None
+                        token_data['completion_tokens'] = None
+                    
                     _store_llm_output({
                         "result": final_response,  # Full streamed response
                         "reasoning": None,  # Streaming usually doesn't have <think> tags
                         "model": model_name,  # Model name for cost calculation
-                        **accumulated_tokens
+                        **token_data
                     })
                     
             except Exception as e:
