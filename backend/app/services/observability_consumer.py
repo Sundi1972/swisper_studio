@@ -24,6 +24,7 @@ from sqlalchemy import select
 
 from app.models import Trace, Observation
 from app.core.config import settings
+from app.api.services.cost_calculation_service import calculate_llm_cost
 
 logger = logging.getLogger(__name__)
 
@@ -346,21 +347,74 @@ class ObservabilityConsumer:
         observation_id: str, 
         data: Dict[str, Any]
     ):
-        """Update observation with output and end time"""
-        # Fetch observation
+        """Update observation with output, tokens, and calculate costs"""
+        # Fetch observation with trace relationship
         result = await session.execute(
             select(Observation).where(Observation.id == observation_id)
         )
         observation = result.scalar_one_or_none()
         
         if observation:
-            observation.output = data.get("output")
+            output = data.get("output")
+            observation.output = output
             observation.end_time = datetime.fromisoformat(data.get("end_time")) if data.get("end_time") else datetime.utcnow()
             observation.level = data.get("level", "DEFAULT")
             
             # Update type if provided (for AUTO type detection)
             if "type" in data:
                 observation.type = data.get("type")
+            
+            # Extract token data from SDK capture (output._llm_tokens)
+            if output and isinstance(output, dict) and '_llm_tokens' in output:
+                llm_tokens = output['_llm_tokens']
+                observation.prompt_tokens = llm_tokens.get('prompt')
+                observation.completion_tokens = llm_tokens.get('completion')
+                observation.total_tokens = llm_tokens.get('total')
+                logger.debug(f"Extracted tokens: {observation.total_tokens} ({observation.prompt_tokens}↑ {observation.completion_tokens}↓)")
+                
+                # Extract model name from SDK capture (output._llm_model)
+                model_name = output.get('_llm_model')
+                
+                # Calculate costs if we have model name and tokens
+                if model_name and observation.prompt_tokens and observation.completion_tokens:
+                    try:
+                        # Import cost calculation service
+                        from app.api.services.cost_calculation_service import calculate_llm_cost
+                        
+                        # Get trace to find project_id
+                        trace_result = await session.execute(
+                            select(Trace).where(Trace.id == observation.trace_id)
+                        )
+                        trace = trace_result.scalar_one_or_none()
+                        
+                        if trace:
+                            # Calculate costs using OUR pricing configuration
+                            cost_result = await calculate_llm_cost(
+                                session=session,
+                                project_id=trace.project_id,
+                                model=model_name,
+                                prompt_tokens=observation.prompt_tokens,
+                                completion_tokens=observation.completion_tokens
+                            )
+                            
+                            if cost_result:
+                                observation.calculated_input_cost = cost_result.input_cost
+                                observation.calculated_output_cost = cost_result.output_cost
+                                observation.calculated_total_cost = cost_result.total_cost
+                                observation.model = model_name  # Also store model name
+                                logger.debug(
+                                    f"Calculated cost: ${cost_result.total_cost} "
+                                    f"(input: ${cost_result.input_cost}, output: ${cost_result.output_cost}) "
+                                    f"for {model_name}"
+                                )
+                            else:
+                                logger.warning(f"No pricing found for model: {model_name}")
+                        else:
+                            logger.warning(f"Trace not found for observation {observation_id}")
+                    
+                    except Exception as e:
+                        logger.warning(f"Cost calculation failed: {e}")
+                        # Continue without costs - not critical
             
             session.add(observation)
             logger.debug(f"Updated observation: {observation_id} ({observation.name}) - type: {observation.type}")

@@ -57,10 +57,21 @@ def wrap_llm_adapter() -> None:
             obs_id = get_current_observation()
             
             if obs_id:
-                # Store prompts
+                # Try to get actual model name from Swisper's config
+                model_name = None
+                try:
+                    # Swisper's adapter has _get_model_config_for_agent_type
+                    if hasattr(self, '_get_model_config_for_agent_type'):
+                        model_config = self._get_model_config_for_agent_type(agent_type)
+                        model_name = model_config.get('model') if model_config else None
+                except:
+                    pass
+                
+                # Store prompts + model info
                 _store_llm_input({
                     "messages": messages,
                     "agent_type": agent_type,
+                    "model": model_name,  # Actual model name for cost calculation
                     "schema_name": schema.__name__ if schema else None,
                 })
                 
@@ -103,9 +114,15 @@ def wrap_llm_adapter() -> None:
                 # Get accumulated reasoning (if any)
                 reasoning_text = _get_accumulated_reasoning(obs_id)
                 
+                # Get model name from input data (stored earlier)
+                model_name = None
+                if obs_id in _llm_telemetry_store and 'input' in _llm_telemetry_store[obs_id]:
+                    model_name = _llm_telemetry_store[obs_id]['input'].get('model')
+                
                 _store_llm_output({
                     "result": result.result.model_dump() if hasattr(result.result, 'model_dump') else str(result.result),
                     "reasoning": reasoning_text,  # Include reasoning!
+                    "model": model_name,  # Model name for cost calculation
                     "total_tokens": result.token_usage,
                     "prompt_tokens": result.prompt_tokens,
                     "completion_tokens": result.completion_tokens,
@@ -131,10 +148,20 @@ def wrap_llm_adapter() -> None:
             obs_id = get_current_observation()
             
             if obs_id:
+                # Try to get model name
+                model_name = None
+                try:
+                    if hasattr(self, '_get_model_config_for_agent_type'):
+                        model_config = self._get_model_config_for_agent_type(agent_type)
+                        model_name = model_config.get('model') if model_config else None
+                except:
+                    pass
+                
                 # Store prompts
                 _store_llm_input({
                     "messages": messages,
                     "agent_type": agent_type,
+                    "model": model_name,
                 })
             
             # Accumulate response chunks and tokens
@@ -164,9 +191,16 @@ def wrap_llm_adapter() -> None:
                 # After streaming completes - store final data
                 if obs_id:
                     final_response = _get_accumulated_response(obs_id)
+                    
+                    # Get model name from input
+                    model_name = None
+                    if obs_id in _llm_telemetry_store and 'input' in _llm_telemetry_store[obs_id]:
+                        model_name = _llm_telemetry_store[obs_id]['input'].get('model')
+                    
                     _store_llm_output({
                         "result": final_response,  # Full streamed response
                         "reasoning": None,  # Streaming usually doesn't have <think> tags
+                        "model": model_name,  # Model name for cost calculation
                         **accumulated_tokens
                     })
                     

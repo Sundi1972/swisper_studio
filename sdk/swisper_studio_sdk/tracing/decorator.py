@@ -205,6 +205,10 @@ def traced(
                     if 'output' in llm_data:
                         final_output['_llm_result'] = llm_data['output'].get('result')
                         
+                        # Add model name for cost calculation
+                        if llm_data['output'].get('model'):
+                            final_output['_llm_model'] = llm_data['output']['model']
+                        
                         # Add reasoning if enabled and available
                         if capture_reasoning and llm_data['output'].get('reasoning'):
                             # Import reasoning function here to apply node-specific max length
