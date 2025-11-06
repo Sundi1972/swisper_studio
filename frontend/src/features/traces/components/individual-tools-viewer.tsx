@@ -123,7 +123,7 @@ export function IndividualToolsViewer({ toolResults }: IndividualToolsViewerProp
   
   // Group by batch if multiple batches
   const batches = new Set(toolCalls.map(tc => tc.batch_key).filter(Boolean));
-  const hasMult​ipleBatches = batches.size > 1;
+  const hasMultipleBatches = batches.size > 1;
   
   return (
     <Box>
