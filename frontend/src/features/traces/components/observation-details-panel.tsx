@@ -20,6 +20,7 @@ import { ReasoningViewer } from './reasoning-viewer';
 import { ResponseViewer } from './response-viewer';
 import { ToolCallViewer } from './tool-call-viewer';
 import { ToolResponseViewer } from './tool-response-viewer';
+import { IndividualToolsViewer } from './individual-tools-viewer';
 
 interface ObservationNode {
   id: string;
@@ -332,12 +333,29 @@ export function ObservationDetailsPanel({ observation }: ObservationDetailsPanel
 
             <Divider sx={{ my: 3 }} />
 
-            {/* Tool Response */}
+            {/* Tool Response - Individual Tools */}
             <Box ref={toolResponseRef} sx={{ mb: 4 }}>
-              <Typography variant="h6" sx={{ mb: 2 }}>
-                Tool Result
-              </Typography>
-              <ToolResponseViewer output={observation.output} />
+              {/* Check if we have tool_results (productivity/research agent format) */}
+              {observation.output?.tool_results ? (
+                <>
+                  <IndividualToolsViewer toolResults={observation.output.tool_results} />
+                  
+                  <Divider sx={{ my: 3 }} />
+                  
+                  {/* Also show full data for reference */}
+                  <Typography variant="h6" sx={{ mb: 2 }}>
+                    Full Tool Data (Raw)
+                  </Typography>
+                  <ToolResponseViewer output={observation.output} />
+                </>
+              ) : (
+                <>
+                  <Typography variant="h6" sx={{ mb: 2 }}>
+                    Tool Result
+                  </Typography>
+                  <ToolResponseViewer output={observation.output} />
+                </>
+              )}
             </Box>
           </>
         )}

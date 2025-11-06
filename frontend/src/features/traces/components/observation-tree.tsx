@@ -165,19 +165,21 @@ export function ObservationTree({ nodes, selectedId, onSelect }: ObservationTree
             
             {node.prompt_tokens !== null && node.completion_tokens !== null && (
               <Chip
-                label={`${node.prompt_tokens + node.completion_tokens}t`}
+                label={`🎫 ${node.prompt_tokens + node.completion_tokens} (${node.prompt_tokens}↑ ${node.completion_tokens}↓)`}
                 size="small"
                 variant="outlined"
+                title={`Input: ${node.prompt_tokens} tokens, Output: ${node.completion_tokens} tokens`}
                 sx={{ fontSize: '0.7rem', height: '22px' }}
               />
             )}
             
-            {node.calculated_total_cost && (
+            {node.calculated_total_cost && parseFloat(node.calculated_total_cost) > 0 && (
               <Chip
-                label={`$${parseFloat(node.calculated_total_cost).toFixed(4)}`}
+                label={`💰 $${parseFloat(node.calculated_total_cost).toFixed(4)}`}
                 size="small"
-                color="success"
+                color="warning"
                 variant="outlined"
+                title="Total cost for this LLM call"
                 sx={{ fontSize: '0.7rem', height: '22px' }}
               />
             )}
