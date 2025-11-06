@@ -229,9 +229,21 @@ def traced(
                 if observation_type == "AUTO":
                     final_type = _detect_observation_type(obs_name, has_llm_data, False)
                 
-                # SPECIAL: Create individual tool observations for tool_execution nodes
-                # UNIVERSAL: Works for ANY agent format (scalable!)
-                if obs_name == "tool_execution" and final_output:
+                # FLEXIBLE TOOL EXTRACTION (v0.5.0 Enhancement):
+                # Extract tools from ANY observation that has _tools_executed
+                # No longer requires node to be named "tool_execution"
+                #
+                # Supports TWO patterns:
+                # Pattern 1: Separate tool_execution node (productivity_agent, doc_agent, wealth_agent)
+                # Pattern 2: Tools in agent observation (research_agent)
+                should_extract_tools = (
+                    # Path 1: Explicit tool_execution node (convention - fastest)
+                    obs_name == "tool_execution"
+                    # Path 2: Any observation with _tools_executed standard format (flexible)
+                    or (final_output and '_tools_executed' in final_output and len(final_output.get('_tools_executed', [])) > 0)
+                )
+                
+                if should_extract_tools and final_output:
                     try:
                         from .tool_observer import create_tool_observations
                         
@@ -243,11 +255,12 @@ def traced(
                         )
                         
                         if tool_count > 0:
-                            print(f"  └─ Created {tool_count} tool observations")
+                            print(f"  └─ Created {tool_count} tool observations from {obs_name}")
+                            logger.debug(f"Extracted {tool_count} tools from {obs_name} observation")
                     
                     except Exception as e:
                         # Don't fail if tool observation creation fails
-                        logger.debug(f"Failed to create tool observations: {e}")
+                        logger.debug(f"Failed to create tool observations from {obs_name}: {e}")
                 
                 # REDIS STREAMS: Publish observation end event (1-2ms, non-blocking)
                 await publish_event(
