@@ -230,23 +230,42 @@ def traced(
                     final_type = _detect_observation_type(obs_name, has_llm_data, False)
                 
                 # SPECIAL: Create individual tool observations for tool_execution nodes
-                if obs_name == "tool_execution" and final_output and 'tool_results' in final_output:
-                    try:
-                        from .tool_observer import create_tool_observations
-                        
-                        # Create child TOOL observations for each tool in tool_results
-                        tool_count = await create_tool_observations(
-                            trace_id=trace_id,
-                            parent_observation_id=obs_id,
-                            tool_results=final_output['tool_results']
-                        )
-                        
-                        if tool_count > 0:
-                            print(f"  └─ Created {tool_count} tool observations")
+                if obs_name == "tool_execution" and final_output:
+                    # Check for tool_results (productivity_agent format)
+                    tool_data = final_output.get('tool_results')
                     
-                    except Exception as e:
-                        # Don't fail if tool observation creation fails
-                        logger.debug(f"Failed to create tool observations: {e}")
+                    # Or check for tool_execution_results_history (research_agent format)
+                    if not tool_data and 'tool_execution_results_history' in final_output:
+                        # Convert research_agent format to tool_results format
+                        history = final_output['tool_execution_results_history']
+                        if history and isinstance(history, list) and len(history) > 0:
+                            # Use the most recent execution results
+                            latest = history[-1] if isinstance(history[-1], dict) else None
+                            if latest and 'results' in latest:
+                                # Wrap in batch format for consistency
+                                tool_data = {
+                                    f"batch_{latest.get('batch_key', 'research')}": {
+                                        'results': latest['results']
+                                    }
+                                }
+                    
+                    if tool_data:
+                        try:
+                            from .tool_observer import create_tool_observations
+                            
+                            # Create child TOOL observations
+                            tool_count = await create_tool_observations(
+                                trace_id=trace_id,
+                                parent_observation_id=obs_id,
+                                tool_results=tool_data
+                            )
+                            
+                            if tool_count > 0:
+                                print(f"  └─ Created {tool_count} tool observations")
+                        
+                        except Exception as e:
+                            # Don't fail if tool observation creation fails
+                            logger.debug(f"Failed to create tool observations: {e}")
                 
                 # REDIS STREAMS: Publish observation end event (1-2ms, non-blocking)
                 await publish_event(

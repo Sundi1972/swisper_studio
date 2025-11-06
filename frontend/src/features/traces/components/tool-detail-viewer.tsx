@@ -115,9 +115,10 @@ export function ToolDetailViewer({ observation }: ToolDetailViewerProps) {
           result ? (
             <Paper sx={{ 
               p: 2, 
-              bgcolor: 'success.dark',
+              bgcolor: '#1a3d2e',  // Dark green background (better contrast)
               border: 1,
-              borderColor: 'success.main'
+              borderColor: 'success.main',
+              '& *': { color: '#e0f2e9 !important' }  // Light green text (high contrast)
             }}>
               {typeof result === 'string' ? (
                 // Try to parse JSON string
@@ -146,7 +147,8 @@ export function ToolDetailViewer({ observation }: ToolDetailViewerProps) {
                           whiteSpace: 'pre-wrap',
                           maxHeight: '500px',
                           overflow: 'auto',
-                          m: 0
+                          m: 0,
+                          color: '#e0f2e9 !important'  // Light green text
                         }}
                       >
                         {result}
