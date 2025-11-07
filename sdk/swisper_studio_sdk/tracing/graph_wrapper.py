@@ -15,6 +15,7 @@ Usage:
 
 from typing import Type, TypeVar
 from langgraph.graph import StateGraph
+import asyncio
 import copy
 import functools
 import logging
@@ -25,10 +26,67 @@ from .decorator import traced
 from .client import get_studio_client
 from .context import set_current_trace, set_current_observation, get_current_trace, get_current_observation
 from .redis_publisher import publish_event, get_redis_client, is_tracing_enabled_for_project, get_project_id
+from .. import __version__
 
 logger = logging.getLogger(__name__)
 
 TState = TypeVar('TState')
+
+# Global heartbeat task tracker (one per project)
+_heartbeat_tasks = {}
+
+
+async def _publish_heartbeat_loop(project_id: str):
+    """
+    Publish heartbeat events every 10 seconds.
+    
+    Allows Swisper to show green indicator when:
+    - Tracing toggle is ON
+    - SDK is alive and publishing
+    
+    Heartbeat format:
+    {
+        "event_type": "heartbeat",
+        "data": {
+            "project_id": "...",
+            "sdk_version": "0.5.0",
+            "timestamp": "2025-11-07T07:30:00Z"
+        }
+    }
+    """
+    try:
+        while True:
+            try:
+                await publish_event(
+                    event_type="heartbeat",
+                    trace_id=None,  # Not tied to specific trace
+                    data={
+                        "project_id": project_id,
+                        "sdk_version": __version__,
+                        "timestamp": datetime.utcnow().isoformat(),
+                    }
+                )
+                logger.debug(f"💓 Heartbeat published for project {project_id[:8]}...")
+            except Exception as e:
+                logger.warning(f"Failed to publish heartbeat: {e}")
+            
+            await asyncio.sleep(10)  # Heartbeat every 10 seconds
+    except asyncio.CancelledError:
+        logger.info(f"Heartbeat task cancelled for project {project_id[:8]}...")
+        raise
+
+
+def _start_heartbeat_task(project_id: str):
+    """
+    Start heartbeat publishing task for a project (if not already running).
+    
+    Only one heartbeat task per project_id.
+    Task runs in background and publishes every 10 seconds.
+    """
+    if project_id not in _heartbeat_tasks:
+        task = asyncio.create_task(_publish_heartbeat_loop(project_id))
+        _heartbeat_tasks[project_id] = task
+        logger.info(f"💓 Started heartbeat task for project {project_id[:8]}...")
 
 
 def create_traced_graph(
@@ -165,6 +223,9 @@ def create_traced_graph(
                         logger.info(f"⏸️ Tracing disabled for project {project_id[:8]}..., skipping trace creation")
                         # Run graph normally WITHOUT tracing
                         return await original_ainvoke(input_state, config, **invoke_kwargs)
+                    
+                    # Tracing is enabled - start heartbeat task (if not already running)
+                    _start_heartbeat_task(project_id)
                 
                 print(f"📍 Top-level agent '{trace_name}', creating new trace...")
 
