@@ -1,13 +1,20 @@
-# Swisper Admin Protocol (SAP) v1.0 - Specification
+# Swisper Admin Protocol (SAP) v1.2 - Specification
 
-**Version:** v1.1  
-**Last Updated:** 2025-11-03  
+**Version:** v1.2  
+**Last Updated:** 2025-11-07  
 **Last Updated By:** heiko  
 **Status:** Active
 
 ---
 
 ## Changelog
+
+### v1.2 - 2025-11-07
+- Added User Management endpoints (for per-user tracing consent)
+- Added GET /api/admin/users (list users with email/name)
+- Added GET /api/admin/users/{user_id} (get single user)
+- Added GET /api/admin/users/search?email={email} (search by email)
+- Required for Phase 5.5: Per-User Tracing Consent
 
 ### v1.1 - 2025-11-03
 - Updated with all 18 Kvant models (from https://documentation.kvant.cloud/products/maas/supported_models/)
@@ -533,6 +540,127 @@ Content-Type: application/json
 - ✅ Permanent (source of truth)
 - ✅ Triggers CI/CD (optional)
 - ⏳ Effect: After next deployment
+
+---
+
+### 3.5 User Management (SAP v1.2)
+
+**Purpose:** Enable SwisperStudio to identify users for per-user tracing consent
+
+**Requirements:**
+- List users with email/name (for admin to select)
+- Search users by email (for finding specific user)
+- Get single user details (for verification)
+- **NO sensitive data** (no passwords, no sessions, no PII beyond email/name)
+
+---
+
+#### List Users
+
+**Endpoint:** `GET /api/admin/users`
+
+**Description:** List all users (minimal info for user selection)
+
+**Request:**
+```http
+GET /api/admin/users?limit=50&offset=0 HTTP/1.1
+Host: swisper.example.com
+Authorization: Bearer {api_key}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "users": [
+    {
+      "id": "user-uuid-123",
+      "email": "john.doe@example.com",
+      "display_name": "John D.",
+      "created_at": "2025-01-15T10:30:00Z"
+    },
+    {
+      "id": "user-uuid-456",
+      "email": "jane.smith@example.com",
+      "display_name": "Jane S.",
+      "created_at": "2025-02-20T14:15:00Z"
+    }
+  ],
+  "total": 2,
+  "limit": 50,
+  "offset": 0
+}
+```
+
+**Query Parameters:**
+- `limit` (optional): Max records to return (default: 50)
+- `offset` (optional): Pagination offset (default: 0)
+
+**Privacy:** Only returns non-sensitive data (id, email, name)
+
+---
+
+#### Search Users by Email
+
+**Endpoint:** `GET /api/admin/users/search`
+
+**Description:** Find users by email (for admin to quickly locate user)
+
+**Request:**
+```http
+GET /api/admin/users/search?email=john.doe@example.com HTTP/1.1
+Host: swisper.example.com
+Authorization: Bearer {api_key}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "users": [
+    {
+      "id": "user-uuid-123",
+      "email": "john.doe@example.com",
+      "display_name": "John D.",
+      "created_at": "2025-01-15T10:30:00Z"
+    }
+  ],
+  "total": 1
+}
+```
+
+**Query Parameters:**
+- `email` (required): Email to search (partial match supported)
+
+**Use Case:** Admin searches "john@" → finds all Johns
+
+---
+
+#### Get Single User
+
+**Endpoint:** `GET /api/admin/users/{user_id}`
+
+**Description:** Get detailed info for one user
+
+**Request:**
+```http
+GET /api/admin/users/user-uuid-123 HTTP/1.1
+Host: swisper.example.com
+Authorization: Bearer {api_key}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "id": "user-uuid-123",
+  "email": "john.doe@example.com",
+  "display_name": "John D.",
+  "created_at": "2025-01-15T10:30:00Z",
+  "last_active": "2025-11-07T06:30:00Z"
+}
+```
+
+**Error Responses:**
+- `404 Not Found` - User doesn't exist
+- `401 Unauthorized` - Invalid API key
 
 ---
 
