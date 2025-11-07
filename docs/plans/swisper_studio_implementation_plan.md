@@ -25,9 +25,11 @@
 **Pending Phases:**
 - ⏸️ Phase 5.4: SDK Deployment & Publishing (1 day) - **RECOMMENDED NEXT**
 - 🔥 Phase 5.3: User Authentication (1-2 weeks) - **HIGH PRIORITY**
+- 🔒 Phase 5.5: Per-User Tracing Consent (5-6 days) - **CRITICAL FOR PRODUCTION** (Privacy/GDPR)
 
 **Outstanding - Swisper Team:**
 - ⏸️ SPA (Swisper Admin Protocol) Implementation (3-4 days)
+- ⏸️ SAP v1.2 User Endpoints (3 hours) - Required for Phase 5.5
 
 **Overall Progress:** ~87% of MVP complete, 13% remaining
 
@@ -1100,6 +1102,152 @@ async def intent_node(state):
 - ✅ RBAC enforces permissions per environment
 - ✅ Logout clears session
 - ✅ Secure (password hashing, JWT expiration)
+
+---
+
+### **Phase 5.5: Privacy-First Per-User Tracing Consent** (5-6 days) - CRITICAL FOR PRODUCTION 🔒
+
+**Status:** Not started - MUST implement before production  
+**Priority:** **CRITICAL** - Legal requirement (GDPR/Privacy)  
+**Business Value:** Privacy-compliant observability, user trust, legal safety  
+**Specification:** `docs/specs/spec_per_user_tracing_v1.md`
+
+**Problem:** Current system traces ALL users without consent
+
+**Current Privacy Risk:**
+```
+Production: Tracing ON for all users
+  ↓
+Captures EVERYTHING: Passwords, credit cards, health data, PII
+  ↓
+Stored in SwisperStudio database
+  ↓
+Admin can see ALL user data
+  ↓
+❌ GDPR violation (no consent)
+❌ Privacy breach
+❌ Legal liability
+```
+
+**Solution:** Per-user opt-in consent system
+
+**Architecture:**
+- User-level consent overrides project-level toggle
+- Admin requests consent for specific user
+- User sees clear dialog and accepts/declines
+- Only consenting users are traced
+- Consent auto-expires after 24 hours
+- GDPR compliant (explicit consent, purpose limitation, auto-delete)
+
+#### SwisperStudio Side (2-3 days)
+
+**Backend (1.5 days):**
+- [ ] User Registry table (sync from Swisper via SAP)
+- [ ] Tracing Consent table (pending/granted/denied/expired)
+- [ ] Consent Audit Log table
+- [ ] Consent Management API endpoints
+  - POST /api/v1/projects/{id}/consent/request
+  - GET /api/v1/projects/{id}/consent
+  - POST /api/v1/consent/{id}/cancel
+  - POST /api/v1/consent/granted (webhook from Swisper)
+  - POST /api/v1/consent/denied (webhook from Swisper)
+- [ ] Consent Service (request, grant, deny, expire)
+- [ ] Background job: Auto-expire consents after 24h
+- [ ] Redis cache: tracing:{project}:user:{user_id}:consent
+
+**Frontend (1 day):**
+- [ ] Consent Management page (Admin → Tracing → Consent)
+- [ ] User search component (calls Swisper SAP /api/admin/users/search)
+- [ ] Request Consent dialog
+  - User selector (email search)
+  - Reason textarea
+  - Duration (24h default)
+- [ ] Active Consents list (table)
+- [ ] Consent history view
+- [ ] Cancel consent button
+
+**SDK (2 hours):**
+- [ ] Update check_user_consent() in graph_wrapper.py
+- [ ] Hierarchical logic: user consent > project default
+- [ ] Check Redis cache: tracing:{project}:user:{user_id}:consent
+- [ ] If "granted" → trace
+- [ ] If "denied" or "expired" → skip
+- [ ] If NULL → fallback to project default
+
+#### Swisper Side (2 days)
+
+**Backend (1 day):**
+- [ ] SAP v1.2: User Management endpoints (3 hours)
+  - GET /api/admin/users (list users)
+  - GET /api/admin/users/search?email={email}
+  - GET /api/admin/users/{id}
+  - Only expose: id, email, display_name, created_at
+- [ ] Consent check endpoint (1 hour)
+  - GET /api/consent/status (for current user)
+  - Returns: pending/granted/denied/null
+- [ ] Consent action endpoints (2 hours)
+  - POST /api/consent/grant
+  - POST /api/consent/deny
+  - Updates Redis cache
+  - Notifies SwisperStudio via webhook
+- [ ] Check consent on each request (2 hours)
+  - Read Redis cache before processing
+  - Show consent dialog if "pending"
+
+**Frontend (1 day):**
+- [ ] Consent Dialog component (4 hours)
+  - Shows when consent = "pending"
+  - Clear privacy explanation
+  - What data is collected
+  - How long it's stored (24h)
+  - Who can access it
+  - Accept/Decline buttons
+- [ ] Tracing Indicator in sidebar (4 hours)
+  - 🟢 Green: Tracing ON + Heartbeat <30s
+  - 🟡 Orange: Tracing ON + Heartbeat >30s
+  - ⚪ Gray: Tracing OFF
+  - Poll status every 30s
+  - Read heartbeat from Redis Stream
+  - Check toggle state in Redis cache
+
+#### Testing & Integration (4 hours)
+
+- [ ] Test consent request flow (admin → user → granted)
+- [ ] Test consent denial (user declines)
+- [ ] Test auto-expiry (24h TTL)
+- [ ] Test hierarchical logic (user override > project default)
+- [ ] Test indicator states (green/orange/gray)
+- [ ] Test heartbeat monitoring
+- [ ] Verify GDPR compliance
+- [ ] Load testing (multiple users with different consents)
+
+**Duration:** 5-6 days (parallel work possible)  
+**Dependencies:** 
+- Phase 5.3 (User Auth) - For admin authentication
+- Phase 5.4 (SDK Publishing) - For clean SDK deployment
+- SAP v1.2 User Endpoints - For user identity sync
+
+**Priority Order:**
+1. Phase 5.3: User Authentication (1-2 weeks)
+2. Phase 5.4: SDK Publishing (1 day)
+3. **Phase 5.5: Per-User Tracing** (5-6 days) ← Before production!
+
+**Success Criteria:**
+- ✅ Admin can request consent for specific user by email
+- ✅ User sees clear consent dialog
+- ✅ User can accept or decline
+- ✅ Only consenting users traced
+- ✅ Consent expires after 24h
+- ✅ Production default: Tracing OFF (opt-in only)
+- ✅ Tracing indicator shows SDK health (green/orange/gray)
+- ✅ GDPR compliant (consent, purpose, auto-delete)
+- ✅ Zero privacy violations in production
+
+**Why Critical:**
+- **Legal:** Can't trace all users without consent (GDPR/CCPA/HIPAA)
+- **Privacy:** Captures sensitive data (passwords, credit cards, health info)
+- **Trust:** Users must know they're being monitored
+- **Competitive:** "Privacy-first observability" is a selling point
 
 ---
 
