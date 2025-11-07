@@ -17,6 +17,7 @@ from typing import Type, TypeVar
 from langgraph.graph import StateGraph
 import copy
 import functools
+import logging
 import uuid
 from datetime import datetime
 
@@ -24,6 +25,8 @@ from .decorator import traced
 from .client import get_studio_client
 from .context import set_current_trace, set_current_observation, get_current_trace, get_current_observation
 from .redis_publisher import publish_event, get_redis_client, is_tracing_enabled_for_project, get_project_id
+
+logger = logging.getLogger(__name__)
 
 TState = TypeVar('TState')
 
@@ -93,23 +96,12 @@ def create_traced_graph(
             Context-aware:
             - If already in a trace context (nested agent), reuse existing trace
             - If not in trace context (top-level), create new trace
-            
-            Q2: Per-request tracing toggle check (1-2ms overhead)
             """
             redis_client = get_redis_client()
 
             if not redis_client:
                 # Tracing not initialized, run normally
                 return await original_ainvoke(input_state, config, **invoke_kwargs)
-            
-            # Q2: Check if tracing is enabled for this project (per-request check)
-            project_id = get_project_id()
-            if project_id:
-                tracing_enabled = await is_tracing_enabled_for_project(project_id)
-                if not tracing_enabled:
-                    logger.info(f"⏸️ Tracing disabled for project {project_id[:8]}..., skipping trace creation")
-                    # Run graph without tracing
-                    return await original_ainvoke(input_state, config, **invoke_kwargs)
 
             # Check if we're already in a trace context (nested agent call)
             existing_trace_id = get_current_trace()
@@ -164,12 +156,22 @@ def create_traced_graph(
 
             else:
                 # TOP-LEVEL AGENT: Create new trace
-                print(f"📍 Top-level agent '{trace_name}', creating new trace...")
                 
+                # Q2: Check if tracing is enabled for this project (per-request check, 1-2ms)
+                project_id = get_project_id()
+                if project_id:
+                    tracing_enabled = await is_tracing_enabled_for_project(project_id)
+                    if not tracing_enabled:
+                        logger.info(f"⏸️ Tracing disabled for project {project_id[:8]}..., skipping trace creation")
+                        # Run graph normally WITHOUT tracing
+                        return await original_ainvoke(input_state, config, **invoke_kwargs)
+                
+                print(f"📍 Top-level agent '{trace_name}', creating new trace...")
+
                 try:
                     user_id = input_state.get("user_id") if isinstance(input_state, dict) else None
                     session_id = input_state.get("chat_id") or input_state.get("session_id") if isinstance(input_state, dict) else None
-                    
+
                     # Extract first sentence of user message for meaningful trace name
                     trace_display_name = trace_name  # Default
                     if isinstance(input_state, dict):
@@ -180,10 +182,10 @@ def create_traced_graph(
                             if len(first_sentence) > 100:
                                 first_sentence = first_sentence[:97] + "..."
                             trace_display_name = first_sentence.strip() or trace_name
-                    
+
                     # Generate trace ID locally
                     trace_id = str(uuid.uuid4())
-                    
+
                     # REDIS STREAMS: Publish trace start event (1-2ms, non-blocking)
                     await publish_event(
                         event_type="trace_start",
