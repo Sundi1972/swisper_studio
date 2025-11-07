@@ -1,20 +1,47 @@
-# SwisperStudio Implementation Plan v2.0
+# SwisperStudio Implementation Plan v3.0
 
-**Date:** November 1, 2025  
-**Status:** Ready for Implementation  
-**Approach:** Vertical phases delivering end-to-end business value
+**Version:** 3.0  
+**Date:** November 7, 2025  
+**Last Updated:** 2025-11-07 11:30 UTC  
+**Status:** In Progress - Week 1 Complete  
+**Approach:** Vertical phases delivering end-to-end business value  
+**Supersedes:** v2.0 (2025-11-01)
+
+---
+
+## 📊 **Current Status (Week 1 Complete)**
+
+**Completed Phases:**
+- ✅ Phase 0: Infrastructure Foundation
+- ✅ Phase 1: "Hello World" End-to-End Proof
+- ✅ Phase 2: "Rich Tracing" Full Context
+- ✅ Phase 2.5: State Visualization
+- ✅ Phase 3: Visualization (Graphs)
+- ✅ Phase 4: Configuration Management
+- ✅ Phase 5.1: SDK Integration & Enhancements (v0.5.0)
+
+**Pending Phases:**
+- ⏸️ Phase 5.2: Model Pricing Management GUI (2-3 days)
+- ⏸️ Phase 5.4: SDK Deployment & Publishing (1 day) - **RECOMMENDED NEXT**
+- 🔥 Phase 5.3: User Authentication (1-2 weeks) - **HIGH PRIORITY**
+
+**Outstanding - Swisper Team:**
+- ⏸️ SPA (Swisper Admin Protocol) Implementation (3-4 days)
+
+**Overall Progress:** ~85% of MVP complete, 15% remaining
 
 ---
 
 ## 📋 Table of Contents
 
 1. [Executive Summary](#executive-summary)
-2. [What We've Built (Phase 0)](#phase-0-infrastructure-foundation)
-3. [MVP Requirements](#mvp-requirements)
-4. [Architecture Decisions](#architecture-decisions)
-5. [Phase Breakdown](#phase-breakdown)
-6. [ClickHouse Integration Timeline](#clickhouse-integration-timeline)
-7. [Success Metrics](#success-metrics)
+2. [Current Status](#current-status-week-1-complete)
+3. [What We've Built (Phase 0)](#phase-0-infrastructure-foundation)
+4. [MVP Requirements](#mvp-requirements)
+5. [Architecture Decisions](#architecture-decisions)
+6. [Phase Breakdown](#phase-breakdown)
+7. [ClickHouse Integration Timeline](#clickhouse-integration-timeline)
+8. [Success Metrics](#success-metrics)
 
 ---
 
@@ -771,38 +798,209 @@ async def intent_node(state):
 
 ---
 
-### **Phase 5.1: SDK Basic Integration** (Week 1) - IN PROGRESS
+### **Phase 5.1: SDK Integration & Enhancements** ✅ COMPLETE (Week 1)
 
-**Status:** SDK ready, awaiting Swisper integration  
-**Business Value:** Real Swisper traces in SwisperStudio
+**Completed:** November 6-7, 2025  
+**Duration:** 1 week (planned 1 week - on schedule!)  
+**Status:** ✅ SDK v0.5.0 Complete  
+**Business Value:** Enterprise-grade observability with tool tracking and cost visibility
 
-#### SDK Preparation (Completed) ✅
-- [x] Fixed trace creation bug (graph_wrapper.py)
-- [x] Fixed state serialization (decorator.py)
-- [x] Created test script (test_sdk_locally.py)
-- [x] End-to-end testing (PASSED)
-- [x] Browser verification (state diff working)
-- [x] Integration guide created
-- [x] Troubleshooting guide created
-- [x] Gap analysis documented
+#### SDK v0.4.0 - Redis Streams Migration ✅
+- [x] Redis Streams architecture (50x faster than HTTP)
+- [x] LLM reasoning capture (DeepSeek R1, o1)
+- [x] Connection status verification (heartbeat)
+- [x] Nested agent traces (single E2E trace)
 
-#### Swisper Integration (Next)
-- [ ] Install SDK in Swisper backend
-- [ ] Initialize tracing in Swisper main.py
-- [ ] Wrap global_supervisor graph
-- [ ] Send test request
-- [ ] Verify trace appears in SwisperStudio
-- [ ] Test with various message types
-- [ ] Document findings
-- [ ] Decide on SDK enhancements vs user auth priority
+#### SDK v0.5.0 - Tool Harmonization & Enhancements ✅
+- [x] Q2 Tracing Toggle (per-project on/off with immediate effect)
+- [x] Tool format harmonization (all 4 agents: research, productivity, wealth, doc)
+- [x] Universal tool detection (automatic, no decorators)
+- [x] Flexible tool extraction (works with any agent architecture)
+- [x] Anti-duplication system (ownership tracking)
+- [x] Cost tracking (316 models, CHF for KVANT)
+- [x] Individual tool observations (🔧 in UI)
+- [x] Meaningful trace names (first sentence of user message)
 
-**Duration:** 20-30 mins integration + 2-3 hours testing  
+#### Swisper Integration ✅
+- [x] SDK installed in Swisper backend
+- [x] Global supervisor graph wrapped
+- [x] All 4 agents traced (research, productivity, wealth, doc)
+- [x] Tool observations working for all agents
+- [x] Cost tracking operational
+- [x] Reasoning capture enabled
+
+#### Outstanding - Swisper Side
+- [ ] **SPA (Swisper Admin Protocol) Implementation**
+  - Status: Design complete, implementation pending
+  - Swisper needs to implement SAP endpoints for config management
+  - Estimated: 3-4 days
+  - Owner: Swisper team
+  - Blocker for: Phase 4 config management full deployment
+
+**Duration:** 1 week  
+**Success Criteria: ALL MET ✅**
+- ✅ Real Swisper requests create traces
+- ✅ All nodes visible with proper types
+- ✅ Tool observations appear for all 4 agents
+- ✅ No duplicates (ownership tracking works)
+- ✅ Cost tracking accurate
+- ✅ Q2 toggle working (immediate effect)
+- ✅ Can debug execution flow completely
+
+---
+
+### **Phase 5.2: Model Pricing Management GUI** (2-3 days) - PENDING
+
+**Status:** Not started  
+**Priority:** Medium  
+**Business Value:** Self-service model pricing management, no SQL required
+
+**Problem:** Currently model pricing requires direct database access or Alembic migrations
+
+**Solution:** CRUD UI for model pricing management
+
+#### Backend (1-2 days)
+- [ ] Model Pricing CRUD endpoints
+  - GET /api/v1/projects/{id}/model-pricing (already exists ✅)
+  - POST /api/v1/model-pricing (create new pricing)
+  - PUT /api/v1/model-pricing/{id} (update pricing)
+  - DELETE /api/v1/model-pricing/{id} (remove pricing)
+  - POST /api/v1/model-pricing/bulk (bulk import from CSV)
+- [ ] Validation
+  - Unique constraint (project + provider + model)
+  - Positive pricing values
+  - Valid provider names
+- [ ] Import/Export
+  - Export all pricing to CSV
+  - Import from CSV (for bulk updates)
+  - Template CSV download
+
+#### Frontend (1-2 days)
+- [ ] Model Pricing Management Page
+  - Data table with search and sort
+  - Add new pricing button (modal form)
+  - Edit pricing (inline or modal)
+  - Delete pricing (with confirmation)
+  - Bulk import (CSV upload)
+  - Export to CSV button
+- [ ] Form Components
+  - Provider dropdown (KVANT, OpenAI, Anthropic, etc.)
+  - Model name input (autocomplete from existing)
+  - Input/output price fields (CHF per million tokens)
+  - Project selector (global or project-specific)
+- [ ] Validation Feedback
+  - Real-time validation
+  - Error messages
+  - Duplicate detection
+  - Success notifications
+
+**UI Concept:**
+```
+┌────────────────────────────────────────────┐
+│ Model Pricing Management                   │
+├────────────────────────────────────────────┤
+│ [+ Add Pricing] [Import CSV] [Export CSV]  │
+│                                            │
+│ Provider  Model           Input    Output  │
+│ KVANT     qwen3-8b        0.035    0.09   │
+│ KVANT     llama4-maverick 0.225    0.09   │
+│ OpenAI    gpt-4-turbo     15.00    30.00  │
+│                                            │
+│ [Edit] [Delete]                            │
+└────────────────────────────────────────────┘
+```
+
 **Success Criteria:**
-- ✅ Real Swisper request creates trace
-- ✅ All nodes visible (intent, memory, planner, agents, ui)
-- ✅ State transitions captured
-- ✅ State diff shows changes
-- ✅ Can debug execution flow
+- ✅ Can add new model pricing via UI (no SQL)
+- ✅ Can edit existing pricing
+- ✅ Can delete pricing
+- ✅ Can bulk import from CSV
+- ✅ Can export to CSV for backup
+- ✅ Validation prevents duplicates and invalid values
+- ✅ Project-specific pricing supported
+
+**Duration:** 2-3 days  
+**Dependencies:** None (backend API partial exists)  
+**Priority:** Medium (nice-to-have for MVP, critical for scale)
+
+---
+
+### **Phase 5.4: SDK Deployment & Publishing** (1 day) - PENDING
+
+**Status:** Not started  
+**Priority:** High (required for production)  
+**Business Value:** Professional SDK distribution, easy updates, no code duplication
+
+**Current Situation:**
+- SDK source in SwisperStudio repo only
+- Hot-deployed to Swisper container for testing (temporary)
+- Swisper repo doesn't have SDK code
+- Docker builds won't work without SDK
+
+**Problem:** Production builds need SDK, but copying code to Swisper repo creates duplication
+
+**Solution:** Publish SDK as package to GitHub Packages (private registry)
+
+#### Setup GitHub Packages (2-3 hours)
+- [ ] Create publish workflow in SwisperStudio repo
+  - `.github/workflows/publish-sdk.yml`
+  - Triggers on git tag (`sdk-v*`)
+  - Builds package (`python -m build`)
+  - Publishes to GitHub Packages
+- [ ] Configure GitHub authentication
+  - Create Personal Access Token with packages:write
+  - Add as repository secret
+- [ ] Test publish
+  - Tag SDK v0.5.0
+  - Verify package appears in GitHub Packages
+  - Test installation from registry
+
+#### Update Swisper to Use Package (1-2 hours)
+- [ ] Update requirements.txt
+  ```python
+  # Add:
+  swisper-studio-sdk==0.5.0
+  ```
+- [ ] Update Dockerfile/docker-compose.yml
+  ```dockerfile
+  # Configure pip to use GitHub Packages
+  RUN pip config set global.index-url https://...github.com
+  RUN pip install -r requirements.txt
+  ```
+- [ ] Remove hot-deployed SDK files
+  - No longer need /app/swisper_studio_sdk_v050/
+  - Installed via pip instead
+- [ ] Test Docker build
+  - Verify SDK downloads from GitHub Packages
+  - Verify all features work
+
+#### Documentation (30 mins)
+- [ ] Update SWISPER_TEAM_HANDOVER_MESSAGE.md
+  - How to update SDK version (change requirements.txt)
+  - How to rebuild with new SDK
+- [ ] Create SDK_PUBLISHING_GUIDE.md
+  - How to publish new SDK versions
+  - Semantic versioning strategy
+  - Release checklist
+
+**Benefits:**
+- ✅ No SDK code duplication
+- ✅ Standard Python workflow (pip install)
+- ✅ Version management (pin to specific version)
+- ✅ Easy updates (change one line in requirements.txt)
+- ✅ Private (GitHub Packages within org)
+- ✅ Free (included with GitHub)
+
+**Duration:** 1 day (3-4 hours)  
+**Priority:** High - Required before Swisper team can build Docker images independently  
+**Owner:** SwisperStudio team
+
+**Success Criteria:**
+- ✅ SDK v0.5.0 published to GitHub Packages
+- ✅ Swisper can `pip install swisper-studio-sdk==0.5.0`
+- ✅ Swisper Docker builds work without manual SDK copying
+- ✅ Documentation complete for publishing new versions
+- ✅ Swisper team can update SDK by changing version number
 
 ---
 
