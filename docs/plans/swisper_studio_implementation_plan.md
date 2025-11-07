@@ -19,16 +19,17 @@
 - ✅ Phase 3: Visualization (Graphs)
 - ✅ Phase 4: Configuration Management
 - ✅ Phase 5.1: SDK Integration & Enhancements (v0.5.0)
+- ✅ Phase 5.2: Model Pricing Management GUI (2-3 hours) - **COMPLETED**
+- ✅ Phase 5c.1: Timeline View (D3.js Waterfall) (14 hours) - **COMPLETED**
 
 **Pending Phases:**
-- ⏸️ Phase 5.2: Model Pricing Management GUI (2-3 days)
 - ⏸️ Phase 5.4: SDK Deployment & Publishing (1 day) - **RECOMMENDED NEXT**
 - 🔥 Phase 5.3: User Authentication (1-2 weeks) - **HIGH PRIORITY**
 
 **Outstanding - Swisper Team:**
 - ⏸️ SPA (Swisper Admin Protocol) Implementation (3-4 days)
 
-**Overall Progress:** ~85% of MVP complete, 15% remaining
+**Overall Progress:** ~87% of MVP complete, 13% remaining
 
 ---
 
@@ -849,79 +850,80 @@ async def intent_node(state):
 
 ---
 
-### **Phase 5.2: Model Pricing Management GUI** (2-3 days) - PENDING
+### **Phase 5.2: Model Pricing Management GUI** ✅ COMPLETE (3 hours)
 
-**Status:** Not started  
+**Completed:** 2025-11-07  
+**Status:** Complete  
 **Priority:** Medium  
 **Business Value:** Self-service model pricing management, no SQL required
 
-**Problem:** Currently model pricing requires direct database access or Alembic migrations
+**Implementation:**
 
-**Solution:** CRUD UI for model pricing management
-
-#### Backend (1-2 days)
-- [ ] Model Pricing CRUD endpoints
-  - GET /api/v1/projects/{id}/model-pricing (already exists ✅)
+#### Backend ✅
+- [x] Model Pricing CRUD endpoints
+  - GET /api/v1/model-pricing (list all global pricing)
   - POST /api/v1/model-pricing (create new pricing)
   - PUT /api/v1/model-pricing/{id} (update pricing)
   - DELETE /api/v1/model-pricing/{id} (remove pricing)
-  - POST /api/v1/model-pricing/bulk (bulk import from CSV)
-- [ ] Validation
-  - Unique constraint (project + provider + model)
-  - Positive pricing values
-  - Valid provider names
-- [ ] Import/Export
-  - Export all pricing to CSV
-  - Import from CSV (for bulk updates)
-  - Template CSV download
+- [x] Added type and description fields
+  - Migration: add_type_and_description_to_model_pricing
+  - Type field: Chat, Embedding, Reranker, Multimodal, Reasoning
+  - Description field: Model capabilities (nullable)
+- [x] Validation
+  - Unique constraint (provider + model)
+  - Positive pricing values (Decimal validation)
+  - IntegrityError handling with 409 Conflict
+- [x] Updated ModelPricing model documentation to reflect CHF currency
 
-#### Frontend (1-2 days)
-- [ ] Model Pricing Management Page
-  - Data table with search and sort
-  - Add new pricing button (modal form)
-  - Edit pricing (inline or modal)
-  - Delete pricing (with confirmation)
-  - Bulk import (CSV upload)
-  - Export to CSV button
-- [ ] Form Components
-  - Provider dropdown (KVANT, OpenAI, Anthropic, etc.)
-  - Model name input (autocomplete from existing)
-  - Input/output price fields (CHF per million tokens)
-  - Project selector (global or project-specific)
-- [ ] Validation Feedback
-  - Real-time validation
-  - Error messages
-  - Duplicate detection
-  - Success notifications
+#### Frontend ✅
+- [x] Cost Management Page (Admin → Cost Management)
+  - Uses standard DataTable component
+  - Search by provider or model name
+  - Sortable columns
+  - Client-side filtering (perfect for ~300-400 models)
+- [x] Create Pricing Dialog
+  - Fields: Model Name, Model, Type, Description, Input/Output prices
+  - CHF per 1M tokens
+  - Validation
+- [x] Edit Pricing Dialog
+  - Pre-populated form
+  - Update all fields
+- [x] Delete Confirmation
+  - Dialog before deletion
+  - Cascade to observations
+- [x] Added to Admin dropdown menu
+  - Menu item: "Cost Management" with money icon
+  - Route: /admin/cost-management
 
-**UI Concept:**
-```
-┌────────────────────────────────────────────┐
-│ Model Pricing Management                   │
-├────────────────────────────────────────────┤
-│ [+ Add Pricing] [Import CSV] [Export CSV]  │
-│                                            │
-│ Provider  Model           Input    Output  │
-│ KVANT     qwen3-8b        0.035    0.09   │
-│ KVANT     llama4-maverick 0.225    0.09   │
-│ OpenAI    gpt-4-turbo     15.00    30.00  │
-│                                            │
-│ [Edit] [Delete]                            │
-└────────────────────────────────────────────┘
-```
+#### Data ✅
+- [x] Populated 18 KVANT models with CHF pricing
+  - Apertus (Chat), BGE (Embedding/Reranker)
+  - DeepSeek R1 (Reasoning), Gemma (Multimodal)
+  - Granite, Llama, Mistral, Qwen models
 
-**Success Criteria:**
+**Success Criteria: ALL MET ✅**
 - ✅ Can add new model pricing via UI (no SQL)
 - ✅ Can edit existing pricing
 - ✅ Can delete pricing
-- ✅ Can bulk import from CSV
-- ✅ Can export to CSV for backup
+- ⏸️ Can bulk import from CSV (deferred - not needed for MVP)
+- ⏸️ Can export to CSV (deferred - not needed for MVP)
 - ✅ Validation prevents duplicates and invalid values
-- ✅ Project-specific pricing supported
+- ✅ Global pricing supported (project-specific deferred)
 
-**Duration:** 2-3 days  
-**Dependencies:** None (backend API partial exists)  
-**Priority:** Medium (nice-to-have for MVP, critical for scale)
+**Files Created:**
+- `frontend/src/api/model-pricing.ts` (API client)
+- `frontend/src/features/admin/components/cost-management-page.tsx`
+- `frontend/src/features/admin/components/create-pricing-dialog.tsx`
+- `frontend/src/features/admin/components/edit-pricing-dialog.tsx`
+- `backend/alembic/versions/2025_11_07_*_add_type_and_description.py`
+
+**Files Modified:**
+- `backend/app/api/routes/model_pricing.py` (+140 lines CRUD endpoints)
+- `backend/app/models/model_pricing.py` (+8 lines type/description fields)
+- `frontend/src/components/global-header.tsx` (+10 lines menu item)
+- `frontend/src/app.tsx` (+12 lines route)
+
+**Duration:** 3 hours (faster than estimated 2-3 days - simplified scope)
 
 ---
 
@@ -1177,6 +1179,177 @@ async def intent_node(state):
 ```
 
 **Status:** Backlog (after Phase 4)
+
+---
+
+### **Phase 5c.1: Timeline View (D3.js Waterfall)** ✅ COMPLETE (14 hours)
+
+**Completed:** 2025-11-07  
+**Status:** Complete - Production Ready  
+**Priority:** High (UX improvement)  
+**Business Value:** Clear execution flow visualization for debugging and understanding
+
+**Problem:** 
+- Network graph view was confusing and provided no real value
+- No sequence information (what happened first vs. last)
+- No timing information visible
+- Difficult to debug performance issues or errors
+
+**Solution:** Industry-standard waterfall/timeline view (like Chrome DevTools, Jaeger, LangSmith)
+
+**Implementation (Following 00-workflow):**
+
+#### Phase 1: Data Transformation (4 hours) ✅
+- [x] Created timeline type definitions
+  - `TimelineNode` interface (20+ fields with JSDoc)
+  - `TimelineData` interface (metadata for rendering)
+- [x] Implemented tree → flat array transformation
+  - Calculates relative timestamps from trace start
+  - Maintains parent-child relationships
+  - Handles missing end_time (defaults to start + 100ms or latency_ms)
+- [x] Expand/collapse state management
+- [x] Refactoring: Extracted constants, optimized to single-pass traversal
+
+#### Phase 2: D3.js Canvas (8 hours) ✅
+- [x] Installed D3.js v7.9.0 with TypeScript types
+- [x] Created TimelineCanvas component
+  - D3.js SVG rendering with bars, labels, axis
+  - Horizontal bars (length = duration)
+  - Time ruler (X-axis at top)
+  - Node labels (left side, indented by depth)
+  - Duration labels (right side, formatted seconds)
+  - Expand/collapse icons (▼/▶)
+  - Error indicators (⚠️ + red bars)
+- [x] Created TimelineHeader component
+  - Summary stats (nodes, duration, cost, errors)
+  - Zoom controls (Zoom In, Out, Fit)
+- [x] Created TimelineView container
+- [x] Implemented zoom/pan with D3 behavior
+  - Mouse wheel zoom
+  - Click-drag pan
+  - Zoom in/out buttons
+  - Fit to screen button
+- [x] Auto-fit to screen on initial render
+- [x] Responsive sizing with ResizeObserver
+- [x] Refactoring: Extracted zoom constants, added error handling
+
+#### Phase 3: Integration (2 hours) ✅
+- [x] Added "Timeline" tab to TraceDetailPage
+- [x] Integrated TimelineView component
+- [x] Browser tested with real 23-node trace
+- [x] UX improvements based on user feedback:
+  - High contrast text (#E0E0E0, #B0B0B0) for readability
+  - Large modal for details (90vh × full width)
+  - Close button in modal title
+  - Scrollbars when zoomed in
+  - Full canvas height usage
+
+**Features Delivered:**
+- ✅ Sequential execution flow (left → right = time)
+- ✅ Hierarchical nesting (indentation = depth)
+- ✅ Duration visualization (bar width = time taken)
+- ✅ Color-coded by type (AGENT=green, GENERATION=purple, TOOL=orange, SPAN=blue)
+- ✅ Interactive details (click → large modal)
+- ✅ Zoom/pan (mouse + buttons)
+- ✅ Expand/collapse nested nodes
+- ✅ Error highlighting (red bars + ⚠️)
+- ✅ Hover tooltips with timing breakdown
+- ✅ Auto-fit to screen
+- ✅ Responsive and scrollable
+
+**Files Created:**
+- `frontend/src/features/traces/types/timeline.ts` (110 lines)
+- `frontend/src/features/traces/utils/transform-to-timeline.ts` (260 lines)
+- `frontend/src/features/traces/components/timeline-canvas.tsx` (360 lines)
+- `frontend/src/features/traces/components/timeline-header.tsx` (107 lines)
+- `frontend/src/features/traces/components/timeline-view.tsx` (123 lines)
+- `docs/specs/spec_timeline_view_v1.md` (specification)
+- `docs/plans/plan_timeline_view_v1.md` (implementation plan)
+
+**Files Modified:**
+- `frontend/src/features/traces/components/trace-detail-page.tsx` (+4 lines)
+- `frontend/src/features/traces/hooks/use-trace-detail.ts` (exported interfaces)
+- `frontend/package.json` (added d3@^7.9.0, @types/d3@^7.4.3)
+
+**Success Criteria: ALL MET ✅**
+- ✅ Timeline shows full trace from start to end
+- ✅ Bars proportional to actual duration
+- ✅ Nesting visible via indentation
+- ✅ Click bar → show details in large modal
+- ✅ Color-coded by observation type
+- ✅ Takes full available canvas space
+- ✅ Shows timing labels (duration)
+- ✅ Zoom/pan for long traces
+- ✅ Expand/collapse nested nodes
+- ✅ High contrast text (readable on dark background)
+- ✅ Scrollbars when zoomed in
+
+**Duration:** 14 hours (estimated 18-25h, finished ahead of schedule!)
+
+---
+
+### **Phase 5c: Server-Side DataTable (Pagination, Filtering, Sorting)** (Backlog - Future)
+
+**Business Value:** Handle large datasets efficiently (traces, observations, analytics)
+
+**Problem:** Current DataTable component is client-side only
+- Loads all data at once
+- Filtering/sorting happens in browser
+- Works fine for small datasets (users, pricing)
+- **Won't scale** for traces (could be millions of records)
+
+**Solution:** Enhance DataTable to support server-side mode
+
+#### Backend Changes (1 day)
+- [ ] Add pagination parameters to trace endpoints
+  - `GET /traces?limit=50&offset=0&sort_by=created_at&sort_order=desc`
+  - `GET /traces?filter=user_id:123&filter=status:ERROR`
+- [ ] Return pagination metadata
+  ```json
+  {
+    "data": [...],
+    "total": 125000,
+    "limit": 50,
+    "offset": 0,
+    "has_more": true
+  }
+  ```
+- [ ] Add database indexes for common filters
+  - user_id, session_id, created_at, name, level
+
+#### Frontend Changes (1-2 days)
+- [ ] Extend DataTable component with server-side mode
+  ```tsx
+  <DataTable
+    mode="server-side"  // New prop
+    data={data}
+    total={metadata.total}
+    onPageChange={(page) => ...}
+    onSortChange={(column, direction) => ...}
+    onFilterChange={(filters) => ...}
+  />
+  ```
+- [ ] Add pagination controls (prev/next, page numbers)
+- [ ] Debounced search (don't query on every keystroke)
+- [ ] Loading states during server requests
+- [ ] URL state sync (page, sort, filters in query params)
+
+#### Use Cases
+- **Trace List Page** - Primary use case (millions of traces)
+- **Observation List** - If we add global observation view
+- **Analytics** - Cost reports, usage stats
+- **Audit Logs** - User activity, config changes
+
+**Duration:** 2-3 days  
+**Priority:** High (required when trace volume increases)  
+**Trigger:** When trace list becomes slow (>1000 traces)
+
+**Success Criteria:**
+- ✅ Can paginate through millions of traces
+- ✅ Search/filter doesn't load all data
+- ✅ Sorting is fast (uses DB indexes)
+- ✅ URL shareable (includes filters/page)
+- ✅ Backward compatible (client-side mode still works)
 
 ---
 

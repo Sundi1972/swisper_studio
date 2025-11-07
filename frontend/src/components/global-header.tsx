@@ -18,6 +18,7 @@ import {
   FolderOpen as ProjectsIcon,
   AdminPanelSettings as AdminIcon,
   People as PeopleIcon,
+  AttachMoney as MoneyIcon,
   KeyboardArrowDown as DownIcon,
 } from '@mui/icons-material';
 import { useState } from 'react';
@@ -107,6 +108,15 @@ export function GlobalHeader() {
                 >
                   <PeopleIcon sx={{ mr: 1 }} fontSize="small" />
                   User Management
+                </MenuItem>
+                <MenuItem 
+                  onClick={() => { 
+                    handleAdminMenuClose(); 
+                    navigate('/admin/cost-management'); 
+                  }}
+                >
+                  <MoneyIcon sx={{ mr: 1 }} fontSize="small" />
+                  Cost Management
                 </MenuItem>
               </Menu>
             </>

@@ -64,17 +64,30 @@ class ModelPricing(SQLModel, table=True):
         description="Model name (e.g., 'gpt-4-turbo', 'claude-3-opus')"
     )
     
-    # Pricing (USD per 1 million tokens)
+    # Model type
+    type: str = Field(
+        ...,
+        max_length=50,
+        description="Model type (e.g., 'Chat', 'Embedding', 'Reranker', 'Multimodal')"
+    )
+    
+    # Model description
+    description: str | None = Field(
+        default=None,
+        description="Description of the model's purpose and capabilities"
+    )
+    
+    # Pricing (CHF per 1 million tokens)
     input_price_per_million: Decimal = Field(
         ...,
         ge=Decimal("0"),  # Non-negative validation
-        description="Price per 1 million input/prompt tokens (USD)"
+        description="Price per 1 million input/prompt tokens (CHF)"
     )
     
     output_price_per_million: Decimal = Field(
         ...,
         ge=Decimal("0"),  # Non-negative validation
-        description="Price per 1 million output/completion tokens (USD)"
+        description="Price per 1 million output/completion tokens (CHF)"
     )
     
     # Timestamps

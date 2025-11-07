@@ -12,6 +12,7 @@ import { ConfigPage } from './features/config/components/config-page';
 import { SystemArchitectureView } from './features/swisper-builder';
 import { ProtectedRoute } from './features/auth/components/protected-route';
 import { UserManagementPage } from './features/admin/components/user-management-page';
+import { CostManagementPage } from './features/admin/components/cost-management-page';
 import { getUser } from './features/auth/utils/auth-storage';
 
 export function App() {
@@ -41,6 +42,16 @@ export function App() {
           element={
             <ProtectedRoute>
               <UserManagementPage />
+            </ProtectedRoute>
+          }
+        />
+        
+        {/* Admin: Cost Management */}
+        <Route
+          path="/admin/cost-management"
+          element={
+            <ProtectedRoute>
+              <CostManagementPage />
             </ProtectedRoute>
           }
         />

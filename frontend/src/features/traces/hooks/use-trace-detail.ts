@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../../lib/api-client';
 
-interface TraceInfo {
+export interface TraceInfo {
   id: string;
   project_id: string;
   name: string | null;
@@ -10,7 +10,7 @@ interface TraceInfo {
   timestamp: string;
 }
 
-interface ObservationNode {
+export interface ObservationNode {
   id: string;
   trace_id: string;
   parent_observation_id: string | null;
@@ -38,7 +38,7 @@ interface ObservationNode {
   total_duration_ms: number | null;
 }
 
-interface TraceDetail {
+export interface TraceDetail {
   trace: TraceInfo;
   tree: ObservationNode[];
   total_cost: string | null;

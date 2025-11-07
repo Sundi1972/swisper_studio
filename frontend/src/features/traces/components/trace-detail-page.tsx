@@ -5,6 +5,7 @@ import { useTraceDetail } from '../hooks/use-trace-detail';
 import { ObservationTree } from './observation-tree';
 import { TraceGraphView } from './trace-graph-view';
 import { ObservationDetailsPanel } from './observation-details-panel';
+import { TimelineView } from './timeline-view';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 
 interface TabPanelProps {
@@ -27,7 +28,7 @@ function TabPanel({ children, value, index }: TabPanelProps) {
  * Tabs:
  * - Tree View: Hierarchical observation structure (Phase 2) + Details Panel (Phase 2.5)
  * - Graph View: Visual execution flow (Phase 3)
- * - Timeline: Chronological sequence (future)
+ * - Timeline: Waterfall/timeline view with D3.js (Phase 5c)
  * - JSON: Raw data view (future)
  */
 export function TraceDetailPage() {
@@ -109,7 +110,7 @@ export function TraceDetailPage() {
         <Tabs value={currentTab} onChange={(_, newValue) => setCurrentTab(newValue)}>
           <Tab label="Tree View" />
           <Tab label="Graph View" />
-          <Tab label="Timeline" disabled />
+          <Tab label="Timeline" />
           <Tab label="JSON" disabled />
         </Tabs>
       </Paper>
@@ -154,7 +155,11 @@ export function TraceDetailPage() {
         </TabPanel>
 
         <TabPanel value={currentTab} index={2}>
-          <Typography>Timeline view coming soon...</Typography>
+          {trace.tree && trace.tree.length > 0 ? (
+            <TimelineView observations={trace.tree} />
+          ) : (
+            <Alert severity="info">No observations for this trace yet</Alert>
+          )}
         </TabPanel>
 
         <TabPanel value={currentTab} index={3}>

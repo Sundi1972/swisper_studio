@@ -370,12 +370,12 @@ if (obs_name == "tool_execution"
 
 ---
 
-### **Issue 2: Potential Tool Duplicates**
+### **Issue 2: Potential Tool Duplicates** ✅ RESOLVED
 
 **Issue:** Anti-duplication deployed but not fully tested  
-**Status:** State TypedDicts updated, needs fresh test  
-**Expected:** 3 tools → 3 TOOL observations (not 6)  
-**Action:** Send test message, verify no duplicates
+**Status:** ✅ **VERIFIED WORKING (Week 2)**  
+**Result:** 3 tools → 3 TOOL observations (no duplicates!)  
+**Resolution:** Ownership tracking functioning correctly
 
 ---
 
@@ -557,11 +557,13 @@ docker compose logs backend --tail 50 | grep "⏭️ Skipping"
 6. Cost tracking (all models)
 7. Meaningful trace names
 
+### **✅ Verified Working (Week 2 Start):**
+1. ✅ Anti-duplication (CONFIRMED - no duplicate tools)
+2. ✅ Ownership tracking (working correctly)
+
 ### **⏸️ Pending Verification:**
-1. Anti-duplication (final test needed)
-2. Ownership tracking (just deployed to container)
-3. Q2 E2E test (toggle preventing traces)
-4. All 4 agents tool visibility (wealth/doc need rebuild)
+1. Q2 E2E test (toggle preventing traces)
+2. All 4 agents tool visibility (wealth/doc need rebuild)
 
 ---
 
