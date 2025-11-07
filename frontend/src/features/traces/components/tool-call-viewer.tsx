@@ -87,10 +87,9 @@ export function ToolCallViewer({ input, name }: ToolCallViewerProps) {
           </Typography>
           <Paper sx={{ 
             p: 2, 
-            bgcolor: 'grey.900', 
+            bgcolor: '#1e1e1e',  // Darker background for better contrast
             overflow: 'auto', 
             maxHeight: '300px',
-            '& *': { color: '#ffffff !important' }
           }}>
             <JsonView 
               value={toolCall.arguments}
@@ -100,7 +99,34 @@ export function ToolCallViewer({ input, name }: ToolCallViewerProps) {
               style={{
                 background: 'transparent',
                 fontSize: '13px',
-              }}
+                // High contrast color scheme
+                '--w-rjv-font-family': 'monospace',
+                '--w-rjv-color': '#E0E0E0',           // Light gray for values
+                '--w-rjv-key-string': '#4FC3F7',       // Light blue for keys
+                '--w-rjv-background-color': 'transparent',
+                '--w-rjv-line-color': '#424242',
+                '--w-rjv-arrow-color': '#B0B0B0',
+                '--w-rjv-edit-color': '#E0E0E0',
+                '--w-rjv-info-color': '#9E9E9E',
+                '--w-rjv-update-color': '#4CAF50',
+                '--w-rjv-copied-color': '#4CAF50',
+                '--w-rjv-copied-success-color': '#4CAF50',
+                '--w-rjv-curlybraces-color': '#FFB74D',  // Orange for braces
+                '--w-rjv-colon-color': '#B0B0B0',
+                '--w-rjv-brackets-color': '#FFB74D',     // Orange for brackets
+                '--w-rjv-quotes-color': '#81C784',       // Green for quotes
+                '--w-rjv-quotes-string-color': '#81C784',
+                '--w-rjv-type-string-color': '#A5D6A7',  // Light green for strings
+                '--w-rjv-type-int-color': '#FFB74D',     // Orange for numbers
+                '--w-rjv-type-float-color': '#FFB74D',
+                '--w-rjv-type-bigint-color': '#FFB74D',
+                '--w-rjv-type-boolean-color': '#9575CD', // Purple for booleans
+                '--w-rjv-type-date-color': '#E0E0E0',
+                '--w-rjv-type-url-color': '#4FC3F7',
+                '--w-rjv-type-null-color': '#EF5350',    // Red for null
+                '--w-rjv-type-nan-color': '#EF5350',
+                '--w-rjv-type-undefined-color': '#EF5350',
+              } as React.CSSProperties}
             />
           </Paper>
         </Box>

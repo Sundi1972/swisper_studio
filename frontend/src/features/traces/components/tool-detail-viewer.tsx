@@ -16,6 +16,26 @@ import {
 } from '@mui/icons-material';
 import JsonView from '@uiw/react-json-view';
 
+// High contrast JSON color scheme for dark background
+const HIGH_CONTRAST_JSON_STYLE: React.CSSProperties = {
+  background: 'transparent',
+  fontSize: '13px',
+  '--w-rjv-font-family': 'monospace',
+  '--w-rjv-color': '#E0E0E0',           // Light gray for values
+  '--w-rjv-key-string': '#4FC3F7',       // Light blue for keys
+  '--w-rjv-background-color': 'transparent',
+  '--w-rjv-line-color': '#424242',
+  '--w-rjv-arrow-color': '#B0B0B0',
+  '--w-rjv-curlybraces-color': '#FFB74D',  // Orange for braces
+  '--w-rjv-colon-color': '#B0B0B0',
+  '--w-rjv-brackets-color': '#FFB74D',     // Orange for brackets
+  '--w-rjv-quotes-color': '#81C784',       // Green for quotes
+  '--w-rjv-type-string-color': '#A5D6A7',  // Light green for strings
+  '--w-rjv-type-int-color': '#FFB74D',     // Orange for numbers
+  '--w-rjv-type-boolean-color': '#9575CD', // Purple for booleans
+  '--w-rjv-type-null-color': '#EF5350',    // Red for null
+} as React.CSSProperties;
+
 interface ObservationNode {
   id: string;
   type: string;
@@ -85,15 +105,12 @@ export function ToolDetailViewer({ observation }: ToolDetailViewerProps) {
           📝 Parameters
         </Typography>
         {Object.keys(parameters).length > 0 ? (
-          <Paper sx={{ p: 2, bgcolor: 'grey.900' }}>
+          <Paper sx={{ p: 2, bgcolor: '#1e1e1e' }}>
             <JsonView 
               value={parameters}
               collapsed={false}
               displayDataTypes={false}
-              style={{
-                background: 'transparent',
-                fontSize: '13px',
-              }}
+              style={HIGH_CONTRAST_JSON_STYLE}
             />
           </Paper>
         ) : (
@@ -130,10 +147,7 @@ export function ToolDetailViewer({ observation }: ToolDetailViewerProps) {
                         value={parsed}
                         collapsed={2}
                         displayDataTypes={false}
-                        style={{
-                          background: 'transparent',
-                          fontSize: '13px',
-                        }}
+                        style={HIGH_CONTRAST_JSON_STYLE}
                       />
                     );
                   } catch {
@@ -161,10 +175,7 @@ export function ToolDetailViewer({ observation }: ToolDetailViewerProps) {
                   value={result}
                   collapsed={2}
                   displayDataTypes={false}
-                  style={{
-                    background: 'transparent',
-                    fontSize: '13px',
-                  }}
+                  style={HIGH_CONTRAST_JSON_STYLE}
                 />
               )}
             </Paper>

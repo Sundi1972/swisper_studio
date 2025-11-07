@@ -136,10 +136,9 @@ export function ToolResponseViewer({ output }: ToolResponseViewerProps) {
       {/* Tool data */}
       <Paper sx={{ 
         p: 2, 
-        bgcolor: 'grey.900', 
+        bgcolor: '#1e1e1e',  // Darker background for better contrast
         overflow: 'auto', 
         maxHeight: '600px',
-        '& *': { color: '#ffffff !important' }
       }}>
         <JsonView 
           value={toolInfo.data}
@@ -149,7 +148,22 @@ export function ToolResponseViewer({ output }: ToolResponseViewerProps) {
           style={{
             background: 'transparent',
             fontSize: '13px',
-          }}
+            // High contrast color scheme
+            '--w-rjv-font-family': 'monospace',
+            '--w-rjv-color': '#E0E0E0',           // Light gray for values
+            '--w-rjv-key-string': '#4FC3F7',       // Light blue for keys
+            '--w-rjv-background-color': 'transparent',
+            '--w-rjv-line-color': '#424242',
+            '--w-rjv-arrow-color': '#B0B0B0',
+            '--w-rjv-curlybraces-color': '#FFB74D',  // Orange for braces
+            '--w-rjv-colon-color': '#B0B0B0',
+            '--w-rjv-brackets-color': '#FFB74D',     // Orange for brackets
+            '--w-rjv-quotes-color': '#81C784',       // Green for quotes
+            '--w-rjv-type-string-color': '#A5D6A7',  // Light green for strings
+            '--w-rjv-type-int-color': '#FFB74D',     // Orange for numbers
+            '--w-rjv-type-boolean-color': '#9575CD', // Purple for booleans
+            '--w-rjv-type-null-color': '#EF5350',    // Red for null
+          } as React.CSSProperties}
         />
       </Paper>
       
