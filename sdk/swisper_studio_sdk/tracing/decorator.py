@@ -8,6 +8,7 @@ Works with both sync and async functions.
 import asyncio
 import copy
 import functools
+import logging
 import time
 import uuid
 from datetime import datetime
@@ -16,6 +17,8 @@ from typing import TypeVar, Callable
 from .client import get_studio_client
 from .context import get_current_trace, get_current_observation, set_current_observation
 from .redis_publisher import publish_event, get_redis_client
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar('T')
 
@@ -236,12 +239,28 @@ def traced(
                 # Supports TWO patterns:
                 # Pattern 1: Separate tool_execution node (productivity_agent, doc_agent, wealth_agent)
                 # Pattern 2: Tools in agent observation (research_agent)
+                
+                # Debug: Check conditions
+                has_tools_in_output = (final_output and '_tools_executed' in final_output and len(final_output.get('_tools_executed', [])) > 0)
+                
+                # Check ownership to prevent duplicate extraction (v0.5.0 anti-duplication)
+                # If _tools_executed_by is set, only extract if this is the owner node
+                created_by = final_output.get('_tools_executed_by') if final_output else None
+                is_owner = (created_by is None or created_by == obs_name)
+                
                 should_extract_tools = (
                     # Path 1: Explicit tool_execution node (convention - fastest)
-                    obs_name == "tool_execution"
+                    (obs_name == "tool_execution" and is_owner)
                     # Path 2: Any observation with _tools_executed standard format (flexible)
-                    or (final_output and '_tools_executed' in final_output and len(final_output.get('_tools_executed', [])) > 0)
+                    or (has_tools_in_output and is_owner)
                 )
+                
+                # Debug logging
+                if has_tools_in_output:
+                    if is_owner:
+                        print(f"  🔍 Found _tools_executed in {obs_name}: {len(final_output.get('_tools_executed', []))} tools (owner: extracting)")
+                    else:
+                        print(f"  ⏭️ Skipping _tools_executed in {obs_name}: {len(final_output.get('_tools_executed', []))} tools (owned by: {created_by})")
                 
                 if should_extract_tools and final_output:
                     try:
@@ -260,7 +279,8 @@ def traced(
                     
                     except Exception as e:
                         # Don't fail if tool observation creation fails
-                        logger.debug(f"Failed to create tool observations from {obs_name}: {e}")
+                        print(f"  ❌ ERROR creating tool observations from {obs_name}: {type(e).__name__}: {e}")
+                        logger.error(f"Failed to create tool observations from {obs_name}: {e}", exc_info=True)
                 
                 # REDIS STREAMS: Publish observation end event (1-2ms, non-blocking)
                 await publish_event(
